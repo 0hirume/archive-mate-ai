@@ -102,9 +102,10 @@ function source(video: Video, seconds?: number): string {
     return address.href;
 }
 
-export function Preview(props: { video: Video }) {
+export function Preview(props: { video: Video; inspection?: boolean }) {
     const image = createMemo(() => thumbnail(props.video));
     const [broken, failure] = createSignal(false);
+    const timing = createMemo(() => duration(props.video));
 
     createEffect(() => {
         image();
@@ -112,8 +113,14 @@ export function Preview(props: { video: Video }) {
     });
 
     return (
-        <span class="flex aspect-video w-full items-center justify-center overflow-hidden rounded-sm bg-surface-muted text-sm text-muted">
-            <Show when={image() && !broken()} fallback={<span class="p-2 text-center">No preview available</span>}>
+        <span
+            class="footage-preview relative flex aspect-video w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-sm bg-surface-muted text-sm text-muted"
+            classList={{ "inspection-preview": props.inspection }}
+        >
+            <Show
+                when={image() && !broken()}
+                fallback={<span class="px-2 text-center text-xs leading-tight">No preview available</span>}
+            >
                 <img
                     class="h-full w-full object-cover"
                     src={image()}
@@ -123,16 +130,22 @@ export function Preview(props: { video: Video }) {
                     onError={() => failure(true)}
                 />
             </Show>
+            <Show when={timing()}>
+                <span
+                    class="rounded-sm bg-black/85 px-1.5 py-0.5 text-xs leading-4 font-medium text-white tabular-nums"
+                    classList={{ "absolute right-1 bottom-1": !!image() && !broken() }}
+                >
+                    <span class="sr-only">{timing()}</span>
+                    <span aria-hidden="true">
+                        {props.video.live === "live" ? "Live" : props.video.live === "upcoming" ? "Upcoming" : timing()}
+                    </span>
+                </span>
+            </Show>
         </span>
     );
 }
 
-export function Footage(props: {
-    results: Result[];
-    selected?: string;
-    open: (result: Result) => void;
-    compact?: boolean;
-}) {
+export function Footage(props: { results: Result[]; selected?: string; open: (result: Result) => void }) {
     return (
         <ul class="divide-y divide-border">
             <For each={props.results}>
@@ -140,11 +153,7 @@ export function Footage(props: {
                     <li>
                         <button
                             type="button"
-                            class={
-                                props.compact
-                                    ? "grid w-full grid-cols-[80px_minmax(0,1fr)] items-start gap-3 py-3 text-left hover:bg-surface-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent sm:grid-cols-[104px_minmax(0,1fr)]"
-                                    : "grid w-full grid-cols-[104px_minmax(0,1fr)] items-start gap-4 px-4 py-5 text-left hover:bg-surface-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent sm:grid-cols-[176px_minmax(0,1fr)] sm:px-6"
-                            }
+                            class="footage-row grid w-full grid-cols-[104px_minmax(0,1fr)] items-start gap-4 px-4 py-5 text-left hover:bg-surface-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent sm:grid-cols-[176px_minmax(0,1fr)] sm:px-6"
                             classList={{ "bg-accent/5": props.selected === result.video.identifier }}
                             aria-pressed={props.selected === result.video.identifier}
                             aria-label={`Inspect source: ${result.video.title || "Title not supplied"}`}
@@ -152,22 +161,12 @@ export function Footage(props: {
                         >
                             <Preview video={result.video} />
                             <span class="grid min-w-0 gap-2">
-                                <span
-                                    class={`break-words leading-snug font-semibold ${props.compact ? "text-sm" : "text-base"}`}
-                                >
+                                <span class="footage-title break-words text-base leading-snug font-semibold">
                                     {result.video.title || "Title not supplied"}
                                 </span>
                                 <span class="text-sm text-muted">{result.video.channel || "Channel not supplied"}</span>
-                                <Show when={date(result.video.publishedAt) || duration(result.video)}>
-                                    <span class="text-sm text-muted">
-                                        {[
-                                            date(result.video.publishedAt) &&
-                                                `Published ${date(result.video.publishedAt)}`,
-                                            duration(result.video),
-                                        ]
-                                            .filter(Boolean)
-                                            .join(" · ")}
-                                    </span>
+                                <Show when={date(result.video.publishedAt)}>
+                                    {(published) => <span class="text-sm text-muted">Published {published()}</span>}
                                 </Show>
                                 <Show when={result.video.availability === "unavailable"}>
                                     <span class="text-sm text-danger">Unavailable when last checked</span>
@@ -247,7 +246,7 @@ export function Inspection(props: {
                 </button>
             </div>
             <div class="grid items-start gap-4 sm:grid-cols-[224px_minmax(0,1fr)]">
-                <Preview video={video()} />
+                <Preview video={video()} inspection />
                 <div class="min-w-0 space-y-2">
                     <h3 class="break-words text-xl leading-snug font-semibold">
                         <a
@@ -273,12 +272,8 @@ export function Inspection(props: {
                         </a>
                     </h3>
                     <p class="text-sm text-muted">{video().channel || "Channel not supplied"}</p>
-                    <Show when={date(video().publishedAt) || duration(video())}>
-                        <p class="text-sm">
-                            {[date(video().publishedAt) && `Published ${date(video().publishedAt)}`, duration(video())]
-                                .filter(Boolean)
-                                .join(" · ")}
-                        </p>
+                    <Show when={date(video().publishedAt)}>
+                        {(published) => <p class="text-sm">Published {published()}</p>}
                     </Show>
                 </div>
             </div>

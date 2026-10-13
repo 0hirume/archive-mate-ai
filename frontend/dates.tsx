@@ -103,7 +103,7 @@ export default function Dates(props: {
         >
             <DatePicker.Control>
                 <DatePicker.Trigger
-                    class="action max-w-full rounded-full border border-border text-sm hover:bg-surface-muted"
+                    class={`action max-w-full rounded-full border text-sm hover:bg-surface-muted ${props.from || props.until ? "border-accent text-accent" : "border-border"}`}
                     aria-label={`Publication dates: ${compact()}`}
                 >
                     <svg

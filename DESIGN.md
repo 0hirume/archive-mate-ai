@@ -181,7 +181,7 @@ White fields have small corners and quiet divider borders. Search and composer u
 
 ### Navigation
 
-A collapsible left utility sidebar carries Search, Overview, Sources, Setup, Archie visibility, and the light/dark switch. Blank rail space and passive branding toggle collapse; child controls act independently. Collapsed controls use Ark Tooltip on hover and keyboard focus. A compact mobile header opens the utility drawer or Archie; desktop has no duplicate header controls. Ark Dialog supplies modal dismissal and focus behavior. Pagination is a bordered, wrapping row of Previous and Next actions with a tabular page count. Keyboard access includes the revealed-on-focus skip link.
+A collapsible left utility sidebar carries Search, Overview, Sources, Archie visibility, and the light/dark switch. Blank rail space and passive branding toggle collapse; child controls act independently. Collapsed controls use Ark Tooltip on hover and keyboard focus. A compact mobile header opens the utility drawer or Archie; desktop has no duplicate header controls. Ark Dialog supplies modal dismissal and focus behavior. Pagination is a bordered, wrapping row of Previous and Next actions with a tabular page count. Keyboard access includes the revealed-on-focus skip link.
 
 ### Footage Rows / Containers
 

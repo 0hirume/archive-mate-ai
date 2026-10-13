@@ -53,13 +53,8 @@ export interface SourceStatus extends Omit<Coverage, "listing"> {
 export interface SourceSummary extends SourceStatus {
     videos: number;
     searchable: number;
-    unknownPublication: number;
-    pending: number;
-    unknownAvailability: number;
     publication: { from: string; until: string } | null;
     years: { year: string; count: number; searchable: number }[];
-    channels: { identifier: string; name: string; count: number }[];
-    channelCount: number;
 }
 
 export interface Ingestion {

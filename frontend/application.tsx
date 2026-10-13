@@ -4,6 +4,7 @@ import { Pagination } from "@ark-ui/solid/pagination";
 import { Select, createListCollection } from "@ark-ui/solid/select";
 import { Switch } from "@ark-ui/solid/switch";
 import { Tabs } from "@ark-ui/solid/tabs";
+import { Toggle } from "@ark-ui/solid/toggle";
 import { Tooltip } from "@ark-ui/solid/tooltip";
 import { For, Show, batch, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -59,7 +60,7 @@ export default function Application() {
     const [chatopen, chatvisibility] = createSignal(false);
     const [sidebarcollapsed, collapseSidebar] = createSignal(false);
     const [sidebaropen, sidebarvisibility] = createSignal(false);
-    const [view, navigate] = createSignal<"search" | "overview" | "sources" | "setup">("search");
+    const [view, navigate] = createSignal<"search" | "overview" | "sources">("search");
     const [archieVisible, setArchieVisible] = createSignal(true);
     const chatShown = createMemo(() => (mobile() ? chatopen() : archieVisible()));
     const ready = createMemo(() => status()?.catalog === "ready" && !statuserror());
@@ -86,6 +87,8 @@ export default function Application() {
     let searchinput: HTMLInputElement | undefined;
     let sourceopener: HTMLElement | undefined;
     let categorytoggle: HTMLButtonElement | undefined;
+    let inspectionTransition: ViewTransition | undefined;
+    let transitionPreview: HTMLElement | undefined;
 
     const categories = createMemo(() =>
         createListCollection({
@@ -456,43 +459,93 @@ export default function Application() {
         }
     }
 
-    function open(result: Result) {
-        sourceopener = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
-        closeChat();
-        navigate("search");
-        metadata(result);
+    function inspect(result?: Result) {
+        inspectionTransition?.skipTransition();
+        inspectionTransition = undefined;
+        transitionPreview?.style.removeProperty("view-transition-name");
 
-        if (result.video.availability === "available") {
-            void loadDetails(result.video.identifier);
-        } else {
-            detailrequest?.abort();
-            detailrequest = undefined;
-            detailstate(false);
-            detailfailure("");
+        const opener = result
+            ? document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : undefined
+            : sourceopener;
+
+        const preview = opener?.querySelector<HTMLElement>(".footage-preview");
+
+        const update = () => {
+            transitionPreview?.style.removeProperty("view-transition-name");
+
+            if (result) {
+                sourceopener = opener;
+
+                batch(() => {
+                    closeChat();
+                    navigate("search");
+                    metadata(result);
+
+                    if (result.video.availability === "available") {
+                        void loadDetails(result.video.identifier);
+                    } else {
+                        detailrequest?.abort();
+                        detailrequest = undefined;
+                        detailstate(false);
+                        detailfailure("");
+                    }
+                });
+
+                inspector?.focus({ preventScroll: true });
+                inspector?.scrollIntoView({ block: "start", behavior: "instant" });
+            } else {
+                detailrequest?.abort();
+                detailrequest = undefined;
+                detailstate(false);
+                detailfailure("");
+                metadata(undefined);
+
+                const target =
+                    opener?.isConnected &&
+                    opener.getClientRects().length &&
+                    (!chatdialog?.contains(opener) || !mobile())
+                        ? opener
+                        : resultheading;
+
+                target?.focus({ preventScroll: true });
+                target?.scrollIntoView({ block: "nearest", behavior: "instant" });
+            }
+        };
+
+        if (!document.startViewTransition || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            update();
+
+            return;
         }
 
-        requestAnimationFrame(() => {
-            inspector?.focus({ preventScroll: true });
-            inspector?.scrollIntoView({ block: "start", behavior: "instant" });
+        transitionPreview = preview ?? undefined;
+
+        if (result && !detail() && preview) {
+            preview.style.viewTransitionName = "source-preview";
+        }
+
+        const transition = document.startViewTransition(() => {
+            if (inspectionTransition !== transition || disposed) {
+                return;
+            }
+
+            update();
+
+            if (!result && preview?.isConnected) {
+                preview.style.viewTransitionName = "source-preview";
+            }
         });
-    }
 
-    function closeDetails() {
-        detailrequest?.abort();
-        detailrequest = undefined;
-        detailstate(false);
-        detailfailure("");
-        metadata(undefined);
+        inspectionTransition = transition;
 
-        const target =
-            sourceopener?.isConnected &&
-            sourceopener.getClientRects().length &&
-            (!chatdialog?.contains(sourceopener) || !mobile())
-                ? sourceopener
-                : resultheading;
-
-        target?.focus({ preventScroll: true });
-        target?.scrollIntoView({ block: "nearest", behavior: "instant" });
+        void transition.finished.then(() => {
+            if (inspectionTransition === transition) {
+                preview?.style.removeProperty("view-transition-name");
+                inspectionTransition = undefined;
+            }
+        });
     }
 
     function browse(text: string) {
@@ -517,7 +570,7 @@ export default function Application() {
         return `${source.category}${siblings.length > 1 ? ` · Playlist ${siblings.findIndex((item) => item.identifier === identifier) + 1}` : ""}`;
     }
 
-    function browseSource(source: SourceSummary, year?: string, all = false) {
+    function browseSource(source: SourceSummary, year?: string) {
         closeChat();
 
         batch(() => {
@@ -530,16 +583,12 @@ export default function Application() {
                 until: year ? `${year}-12-31` : "",
                 order: "latest",
             });
-
-            if (all) {
-                searchtext("");
-            }
         });
 
         requestAnimationFrame(() => searchinput?.focus());
     }
 
-    function showView(next: "search" | "overview" | "sources" | "setup") {
+    function showView(next: "search" | "overview" | "sources") {
         closeChat();
 
         if (mobile()) {
@@ -591,6 +640,8 @@ export default function Application() {
 
     onCleanup(() => {
         disposed = true;
+        inspectionTransition?.skipTransition();
+        transitionPreview?.style.removeProperty("view-transition-name");
         statusrequest?.abort();
         searchrequest?.abort();
         clearTimeout(searchtimer);
@@ -692,7 +743,7 @@ export default function Application() {
                 unmountOnExit={false}
                 onValueChange={(details) => {
                     const next = details.value;
-                    if (next === "search" || next === "overview" || next === "sources" || next === "setup") {
+                    if (next === "search" || next === "overview" || next === "sources") {
                         showView(next);
                     }
                 }}
@@ -757,15 +808,14 @@ export default function Application() {
                                 </svg>
                                 <span
                                     id="utility-title"
-                                    class="min-w-0 text-sm font-semibold tracking-tight"
-                                    classList={{ "sr-only": !mobile() && sidebarcollapsed() }}
+                                    class="navigation-label min-w-0 text-sm font-semibold tracking-tight"
                                 >
                                     ArchiveMateAI
                                 </span>
                             </div>
                             <button
                                 type="button"
-                                class="sr-only focus:not-sr-only focus:static focus:min-h-11 focus:shrink-0 focus:whitespace-normal focus:bg-surface-raised focus:px-3"
+                                class="sr-only focus:not-sr-only focus:absolute focus:inset-x-3 focus:top-6 focus:z-10 focus:min-h-11 focus:whitespace-normal focus:bg-surface-raised focus:px-3"
                                 aria-label={
                                     mobile()
                                         ? "Close utility sidebar"
@@ -791,10 +841,10 @@ export default function Application() {
                             </button>
                             <div id="utility-content" class="flex min-h-0 flex-1 flex-col gap-6">
                                 <Tabs.List
-                                    class="min-h-0 flex-1 space-y-1 overflow-y-auto"
+                                    class="relative isolate min-h-0 flex-1 space-y-1 overflow-y-auto"
                                     aria-label="Research desk views"
                                 >
-                                    <For each={["search", "overview", "sources", "setup"] as const}>
+                                    <For each={["search", "overview", "sources"] as const}>
                                         {(destination) => (
                                             <Tooltip.Root
                                                 ids={{ trigger: `research-tab-${destination}` }}
@@ -806,8 +856,7 @@ export default function Application() {
                                                         <Tabs.Trigger
                                                             {...props}
                                                             value={destination}
-                                                            class="action w-full justify-start gap-3 px-3 text-sm hover:bg-surface-muted"
-                                                            classList={{ "bg-surface-muted": view() === destination }}
+                                                            class="action w-full justify-start gap-3 px-3 text-sm hover:bg-surface-muted data-selected:text-accent"
                                                             aria-label={
                                                                 destination.charAt(0).toUpperCase() +
                                                                 destination.slice(1)
@@ -837,15 +886,8 @@ export default function Application() {
                                                                     <rect x="7" y="3" width="14" height="14" rx="2" />
                                                                     <path d="M17 17v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2M11 7h6M11 11h6" />
                                                                 </Show>
-                                                                <Show when={destination === "setup"}>
-                                                                    <path
-                                                                        stroke-linejoin="round"
-                                                                        d="m10 3-.5 2-2 1-2-.5-2 3.5 1.5 1.5v3L3.5 15l2 3.5 2-.5 2 1 .5 2h4l.5-2 2-1 2 .5 2-3.5-1.5-1.5v-3L20.5 9l-2-3.5-2 .5-2-1-.5-2Z"
-                                                                    />
-                                                                    <circle cx="12" cy="12" r="3" />
-                                                                </Show>
                                                             </svg>
-                                                            <span hidden={!mobile() && sidebarcollapsed()}>
+                                                            <span class="navigation-label">
                                                                 {destination.charAt(0).toUpperCase() +
                                                                     destination.slice(1)}
                                                             </span>
@@ -862,6 +904,14 @@ export default function Application() {
                                             </Tooltip.Root>
                                         )}
                                     </For>
+                                    <Tabs.Indicator
+                                        class="navigation-indicator"
+                                        style={{
+                                            "transition-property": "top",
+                                            "transition-duration": "var(--indicator-duration, 0ms)",
+                                            "transition-timing-function": "cubic-bezier(0.16, 1, 0.3, 1)",
+                                        }}
+                                    />
                                 </Tabs.List>
                                 <div class="mt-auto shrink-0 space-y-2">
                                     <Tooltip.Root
@@ -897,9 +947,7 @@ export default function Application() {
                                                     />
                                                 </Show>
                                             </span>
-                                            <span class="min-w-0 text-left" hidden={!mobile() && sidebarcollapsed()}>
-                                                Archie
-                                            </span>
+                                            <span class="navigation-label min-w-0 text-left">Archie</span>
                                         </Tooltip.Trigger>
                                         <Portal>
                                             <Tooltip.Positioner class="z-50">
@@ -954,7 +1002,7 @@ export default function Application() {
                                                             <path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5" />
                                                         </Show>
                                                     </svg>
-                                                    <Switch.Label hidden={!mobile() && sidebarcollapsed()}>
+                                                    <Switch.Label class="navigation-label">
                                                         {theme() === "dark" ? "Dark mode" : "Light mode"}
                                                     </Switch.Label>
                                                     <Switch.HiddenInput role="switch" aria-label="Dark mode" />
@@ -1061,8 +1109,8 @@ export default function Application() {
                     </header>
                     <main
                         id="workspace"
-                        class="grid min-w-0 items-start gap-6 px-4 py-6 sm:px-6"
-                        classList={{ "lg:grid-cols-[minmax(0,1fr)_minmax(320px,40%)]": archieVisible() }}
+                        class="grid min-w-0 items-start px-4 py-6 sm:px-6"
+                        data-conversation={archieVisible() ? "open" : "closed"}
                         tabindex="-1"
                     >
                         <Tabs.Content value="search" class="min-w-0 bg-surface-raised">
@@ -1134,7 +1182,7 @@ export default function Application() {
                                             <Select.Label class="sr-only">Categories</Select.Label>
                                             <Select.Control>
                                                 <Select.Trigger
-                                                    class="action min-w-0 justify-between rounded-full border border-border font-normal hover:bg-surface-muted"
+                                                    class={`action min-w-0 justify-between rounded-full border font-normal hover:bg-surface-muted ${filters().categories.length ? "border-accent text-accent" : "border-border"}`}
                                                     ref={(element) => {
                                                         categorytoggle = element;
                                                     }}
@@ -1207,7 +1255,9 @@ export default function Application() {
                                         >
                                             <Select.Label class="sr-only">Sources</Select.Label>
                                             <Select.Control>
-                                                <Select.Trigger class="action min-w-0 justify-between rounded-full border border-border font-normal hover:bg-surface-muted">
+                                                <Select.Trigger
+                                                    class={`action min-w-0 justify-between rounded-full border font-normal hover:bg-surface-muted ${filters().playlists.length ? "border-accent text-accent" : "border-border"}`}
+                                                >
                                                     <span>
                                                         {filters().playlists.length
                                                             ? `Sources: ${filters().playlists.length}`
@@ -1284,7 +1334,9 @@ export default function Application() {
                                         >
                                             <Select.Label class="sr-only">Sort results</Select.Label>
                                             <Select.Control>
-                                                <Select.Trigger class="action min-w-0 justify-between gap-2 rounded-full border border-border font-normal hover:bg-surface-muted">
+                                                <Select.Trigger
+                                                    class={`action min-w-0 justify-between gap-2 rounded-full border font-normal hover:bg-surface-muted ${filters().order !== defaults.order ? "border-accent text-accent" : "border-border"}`}
+                                                >
                                                     <span>Sort: {orderLabels[filters().order]}</span>
                                                     <Select.Indicator>
                                                         <svg
@@ -1330,21 +1382,30 @@ export default function Application() {
                                             </Portal>
                                             <Select.HiddenSelect />
                                         </Select.Root>
-                                        <Switch.Root
-                                            class="action cursor-pointer gap-2 rounded-full border border-border text-sm font-normal hover:bg-surface-muted data-[state=checked]:border-accent data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-accent"
-                                            checked={semantic()}
+                                        <Toggle.Root
+                                            class={`action gap-2 rounded-full border text-sm font-normal hover:bg-surface-muted ${semantic() ? "border-accent text-accent" : "border-border"}`}
+                                            pressed={semantic()}
                                             disabled={locked()}
-                                            onCheckedChange={(details) => {
+                                            aria-label="Hybrid search"
+                                            aria-describedby="semantic-description"
+                                            onPressedChange={(pressed) => {
                                                 cancelSearch();
-                                                semanticMode(details.checked);
+                                                semanticMode(pressed);
                                             }}
                                         >
-                                            <Switch.Control class="flex h-5 w-8 shrink-0 items-center rounded-full bg-border px-0.5 data-[state=checked]:bg-accent">
-                                                <Switch.Thumb class="size-4 rounded-full bg-surface-raised data-[state=checked]:translate-x-3" />
-                                            </Switch.Control>
-                                            <Switch.Label>Semantic</Switch.Label>
-                                            <Switch.HiddenInput role="switch" aria-describedby="semantic-description" />
-                                        </Switch.Root>
+                                            <svg
+                                                aria-hidden="true"
+                                                viewBox="0 0 24 24"
+                                                class="size-4 shrink-0"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="1.5"
+                                            >
+                                                <circle cx="10" cy="10" r="6" />
+                                                <path d="m14.5 14.5 6 6" />
+                                            </svg>
+                                            {semantic() ? "Hybrid" : "Keyword"}
+                                        </Toggle.Root>
                                         <Show
                                             when={
                                                 filters().categories.length ||
@@ -1391,7 +1452,7 @@ export default function Application() {
                                         <p>
                                             {statuserror() ||
                                                 status()?.error ||
-                                                "Ask your administrator to add the collection, then refresh status."}
+                                                "The collection is unavailable. Refresh status to try again."}
                                         </p>
                                         <div class="flex flex-wrap gap-2">
                                             <button
@@ -1429,7 +1490,7 @@ export default function Application() {
                                             result={selected()}
                                             loading={detailing()}
                                             failure={detailerror()}
-                                            close={closeDetails}
+                                            close={() => inspect()}
                                             refresh={() => {
                                                 void loadDetails(selected().video.identifier);
                                             }}
@@ -1449,7 +1510,9 @@ export default function Application() {
                                             tabindex="-1"
                                         >
                                             {collection()
-                                                ? `${numbers.format(collection()!.total)} ${submitted().query.trim() ? "possible matches" : "videos"}`
+                                                ? submitted().semantic && submitted().query.trim()
+                                                    ? "Ranked results"
+                                                    : `${numbers.format(collection()!.total)} ${submitted().query.trim() ? "possible matches" : "videos"}`
                                                 : "Sources"}
                                         </h2>
                                         <Show when={collection()?.total}>
@@ -1547,7 +1610,7 @@ export default function Application() {
                                                 <Footage
                                                     results={response().results}
                                                     selected={detail()?.video.identifier}
-                                                    open={open}
+                                                    open={inspect}
                                                 />
                                             </Show>
                                             <Show when={pages() > 1}>
@@ -1594,9 +1657,41 @@ export default function Application() {
                                                     >
                                                         Previous
                                                     </Pagination.PrevTrigger>
-                                                    <span class="text-sm tabular-nums">
-                                                        Page {response().page} of {pages()}
-                                                    </span>
+                                                    <Pagination.Context>
+                                                        {(pagination) => (
+                                                            <div class="flex min-w-0 flex-wrap justify-center gap-1">
+                                                                <For each={pagination().pages}>
+                                                                    {(page, position) =>
+                                                                        page.type === "ellipsis" ? (
+                                                                            <Pagination.Ellipsis
+                                                                                index={position()}
+                                                                                class="flex min-h-11 items-center px-2 text-muted"
+                                                                            >
+                                                                                &hellip;
+                                                                            </Pagination.Ellipsis>
+                                                                        ) : (
+                                                                            <Pagination.Item
+                                                                                {...page}
+                                                                                class="action min-w-11 px-3 tabular-nums hover:bg-surface-muted data-selected:bg-accent data-selected:text-accent-foreground"
+                                                                                disabled={
+                                                                                    searching() ||
+                                                                                    composing() ||
+                                                                                    textScope(query(), filters()) !==
+                                                                                        textScope(
+                                                                                            submitted().query,
+                                                                                            submitted().filters,
+                                                                                            submitted().semantic,
+                                                                                        )
+                                                                                }
+                                                                            >
+                                                                                {page.value}
+                                                                            </Pagination.Item>
+                                                                        )
+                                                                    }
+                                                                </For>
+                                                            </div>
+                                                        )}
+                                                    </Pagination.Context>
                                                     <Pagination.NextTrigger
                                                         class="action bg-surface-muted hover:bg-border"
                                                         disabled={
@@ -1620,7 +1715,7 @@ export default function Application() {
                                 </Show>
                             </section>
                         </Tabs.Content>
-                        <For each={["overview", "sources", "setup"] as const}>
+                        <For each={["overview", "sources"] as const}>
                             {(destination) => (
                                 <Tabs.Content value={destination} class="min-w-0 bg-surface-raised p-4 sm:p-6">
                                     <Collection
@@ -1628,12 +1723,7 @@ export default function Application() {
                                         active={view() === destination}
                                         status={status()}
                                         failure={statuserror()}
-                                        refreshing={refreshing()}
-                                        refresh={() => {
-                                            void refresh();
-                                        }}
                                         browse={browseSource}
-                                        open={open}
                                         locked={locked()}
                                     />
                                 </Tabs.Content>
@@ -1719,8 +1809,7 @@ export default function Application() {
                                             void clear();
                                         }}
                                         close={closeChat}
-                                        details={() => showView(ready() ? "setup" : "overview")}
-                                        open={open}
+                                        open={inspect}
                                         composer={(element) => {
                                             composer = element;
                                         }}

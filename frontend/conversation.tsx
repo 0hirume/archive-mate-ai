@@ -29,7 +29,6 @@ export default function Conversation(props: {
     browse: (text: string) => void;
     clear: () => void;
     close: () => void;
-    details: () => void;
     open: (result: Result) => void;
     composer: (element: HTMLTextAreaElement) => void;
     messages: (element: HTMLDivElement) => void;
@@ -96,15 +95,8 @@ export default function Conversation(props: {
                                 ? "Checking collection and assistant availability…"
                                 : !props.ready
                                   ? "Archie needs a working collection. Resolve the collection error, then try again."
-                                  : "Archie hasn't been configured. Direct search is available on your research desk."}
+                                  : "Archie is unavailable. You can still search the collection."}
                         </p>
-                        <button
-                            type="button"
-                            class="action px-0 text-sm underline underline-offset-4 hover:text-accent"
-                            onClick={props.details}
-                        >
-                            {props.ready ? "Setup Archie" : "Overview"}
-                        </button>
                     </div>
                 </Show>
                 <Show when={props.available && !props.entries.length}>
@@ -118,7 +110,7 @@ export default function Conversation(props: {
                 <For each={props.entries}>
                     {(entry) =>
                         entry.kind === "question" ? (
-                            <div class="flex flex-col items-end px-2">
+                            <div class="message-entry flex flex-col items-end px-2">
                                 <div class="mb-1 text-sm">You</div>
                                 <p
                                     class="message-bubble max-w-[92%] bg-conversation whitespace-pre-wrap text-conversation-foreground"
@@ -128,7 +120,7 @@ export default function Conversation(props: {
                                 </p>
                             </div>
                         ) : (
-                            <article class="space-y-2" ref={props.answer}>
+                            <article class="message-entry space-y-2" ref={props.answer}>
                                 <div class="flex flex-col items-start px-2">
                                     <div class="mb-2 text-sm font-semibold">Archie</div>
                                     <p
@@ -305,7 +297,7 @@ export default function Conversation(props: {
                     ids={{ helperText: "archie-composer-help" }}
                 >
                     <Field.Label class="sr-only">Message Archie</Field.Label>
-                    <div class="flex items-end gap-2 rounded-2xl border border-border bg-surface-raised p-2 focus-within:outline-2 focus-within:outline-accent">
+                    <div class="composer flex items-end gap-2 rounded-2xl border border-border bg-surface-raised p-2 focus-within:outline-2 focus-within:outline-accent">
                         <Field.Textarea
                             class="max-h-40 min-h-12 w-full min-w-0 flex-1 resize-none rounded-xl bg-transparent px-3 py-2 text-base focus-visible:outline-none disabled:opacity-50"
                             ref={props.composer}
@@ -332,10 +324,22 @@ export default function Conversation(props: {
                         />
                         <button
                             type="submit"
-                            class="action min-h-12 shrink-0 rounded-full bg-conversation text-conversation-foreground hover:bg-conversation/90"
+                            class="send-action action min-h-12 shrink-0 rounded-full bg-conversation text-conversation-foreground hover:bg-conversation/90"
                             disabled={!props.available || props.sending || props.clearing || !props.message.trim()}
                         >
                             Send
+                            <svg
+                                class="size-4"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                aria-hidden="true"
+                            >
+                                <path d="M4 12h16m-6-6 6 6-6 6" />
+                            </svg>
                         </button>
                     </div>
                     <Field.HelperText class="block text-right text-sm text-muted">

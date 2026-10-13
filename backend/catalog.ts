@@ -434,10 +434,6 @@ export function sourceSummaries(): SourceSummary[] {
             .prepare(`
             SELECT playlist, COUNT(*) AS total,
                 SUM(availability = 'available') AS searchable,
-                SUM(availability = 'unavailable') AS unavailable,
-                SUM(availability = 'unknown') AS unknownAvailability,
-                SUM(details = 'pending') AS pending,
-                SUM(published IS NULL) AS unknownPublication,
                 MIN(published) AS first, MAX(published) AS last
             FROM memberships JOIN videos ON videos.identifier = memberships.video GROUP BY playlist
         `)
@@ -452,35 +448,13 @@ export function sourceSummaries(): SourceSummary[] {
         `)
             .all();
 
-        const channels = connection
-            .prepare(`
-            WITH grouped AS (
-                SELECT playlist, MAX(json_extract(data, '$.channelIdentifier')) AS identifier,
-                    MAX(json_extract(data, '$.channel')) AS name, COUNT(*) AS total
-                FROM memberships JOIN videos ON videos.identifier = memberships.video
-                WHERE json_extract(data, '$.channel') != ''
-                GROUP BY playlist, CASE WHEN json_extract(data, '$.channelIdentifier') != ''
-                    THEN json_extract(data, '$.channelIdentifier') ELSE json_extract(data, '$.channel') END
-            ), ranked AS (
-                SELECT *, ROW_NUMBER() OVER (PARTITION BY playlist ORDER BY total DESC, name, identifier) AS position,
-                    COUNT(*) OVER (PARTITION BY playlist) AS channelCount FROM grouped
-            )
-            SELECT * FROM ranked WHERE position <= 8 ORDER BY playlist, position
-        `)
-            .all();
-
         const summaries = coverage.map((source): SourceSummary => {
             const count = counts.find((row) => row.playlist === source.identifier);
-            const contributing = channels.filter((row) => row.playlist === source.identifier);
 
             return {
                 ...sourceStatus(source),
                 videos: Number(count?.total ?? 0),
                 searchable: Number(count?.searchable ?? 0),
-                unavailable: Number(count?.unavailable ?? 0),
-                unknownAvailability: Number(count?.unknownAvailability ?? 0),
-                pending: Number(count?.pending ?? 0),
-                unknownPublication: Number(count?.unknownPublication ?? 0),
 
                 publication:
                     count?.first && count.last ? { from: String(count.first), until: String(count.last) } : null,
@@ -492,14 +466,6 @@ export function sourceSummaries(): SourceSummary[] {
                         count: Number(row.total),
                         searchable: Number(row.searchable),
                     })),
-
-                channels: contributing.map((row) => ({
-                    identifier: String(row.identifier),
-                    name: String(row.name),
-                    count: Number(row.total),
-                })),
-
-                channelCount: Number(contributing[0]?.channelCount ?? 0),
             };
         });
 
@@ -510,18 +476,6 @@ export function sourceSummaries(): SourceSummary[] {
         connection.exec("ROLLBACK");
         throw error;
     }
-}
-
-export function sourcePreview(identifier: string): Video[] {
-    return database()
-        .prepare(`
-        SELECT data FROM videos JOIN memberships ON memberships.video = videos.identifier
-        WHERE playlist = ?
-        ORDER BY CASE availability WHEN 'available' THEN 0 WHEN 'unknown' THEN 1 ELSE 2 END,
-            published DESC, videos.identifier LIMIT 3
-    `)
-        .all(identifier)
-        .map((row) => parseVideo(JSON.parse(String(row.data))));
 }
 
 export function readVideo(identifier: string): Video | null {

@@ -112,9 +112,6 @@ function sourceSummary(value: unknown): value is SourceSummary {
         count(value.videos) &&
         count(value.searchable) &&
         value.searchable <= value.videos &&
-        count(value.unknownPublication) &&
-        count(value.pending) &&
-        count(value.unknownAvailability) &&
         (value.publication === null ||
             (record(value.publication) &&
                 typeof value.publication.from === "string" &&
@@ -128,17 +125,7 @@ function sourceSummary(value: unknown): value is SourceSummary {
                 count(year.count) &&
                 count(year.searchable) &&
                 year.searchable <= year.count,
-        ) &&
-        list(
-            value.channels,
-            (channel): channel is SourceSummary["channels"][number] =>
-                record(channel) &&
-                typeof channel.identifier === "string" &&
-                typeof channel.name === "string" &&
-                count(channel.count),
-        ) &&
-        value.channels.length <= 8 &&
-        count(value.channelCount)
+        )
     );
 }
 
@@ -245,14 +232,6 @@ export function status(signal: AbortSignal): Promise<Status> {
 
 export function sources(signal: AbortSignal): Promise<SourceSummary[]> {
     return request("/api/sources", (value): value is SourceSummary[] => list(value, sourceSummary), { signal });
-}
-
-export function sourcePreview(identifier: string, signal: AbortSignal): Promise<Video[]> {
-    return request(
-        `/api/sources/${encodeURIComponent(identifier)}/preview`,
-        (value): value is Video[] => list(value, video) && value.length <= 3,
-        { signal },
-    );
 }
 
 export function search(

@@ -8,11 +8,10 @@ import { extname, resolve, sep } from "node:path";
 import type { Status } from "../shared/metadata.ts";
 
 import { clearSession, converse } from "./assistant.ts";
-import { catalogSummary, emptyCatalog, readVideo, sourcePreview, sourceStatus, sourceSummaries } from "./catalog.ts";
+import { catalogSummary, emptyCatalog, readVideo, sourceStatus, sourceSummaries } from "./catalog.ts";
 import { database } from "./database.ts";
 import { filters, retrieve } from "./search.ts";
 import { assistanceConfigured, model } from "./settings.ts";
-import { sources } from "./sources.ts";
 import { Failure, text } from "./validation.ts";
 
 const frontendPath = resolve("dist/frontend");
@@ -150,18 +149,6 @@ const server = createServer(async (request, response) => {
 
             if (url.pathname === "/api/sources" && request.method === "GET") {
                 json(response, sourceSummaries());
-
-                return;
-            }
-
-            if (url.pathname.startsWith("/api/sources/") && request.method === "GET") {
-                const match = url.pathname.match(/^\/api\/sources\/([\w-]{1,100})\/preview$/);
-
-                if (!match || !sources.some((source) => source.identifier === match[1])) {
-                    throw new Failure("Unknown source playlist.");
-                }
-
-                json(response, sourcePreview(match[1]!));
 
                 return;
             }
