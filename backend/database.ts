@@ -1,7 +1,8 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+import { searchRevision, searchableDescription } from "./passages.ts";
 import { catalogPath } from "./settings.ts";
 import { durationSeconds, titleKey } from "./sort.ts";
 
@@ -25,8 +26,16 @@ export function database(): DatabaseSync {
         opened.exec("BEGIN IMMEDIATE");
         const version = Number(opened.prepare("PRAGMA user_version").get()!.user_version);
 
-        if (![0, 1, 2, 3, 4].includes(version)) {
+        if (![0, 1, 2, 3, 4, 5, 6].includes(version)) {
             throw new Error("Unsupported catalog database version.");
+        }
+
+        if (
+            version > 0 &&
+            version < 6 &&
+            (existsSync(`${catalogPath}.lock`) || existsSync(`${catalogPath}.embedding.lock`))
+        ) {
+            throw new Error("Finish active ingestion or indexing before upgrading the searchable catalog.");
         }
 
         if (version === 0) {
@@ -173,6 +182,99 @@ export function database(): DatabaseSync {
                 CREATE INDEX preparation_revisions ON preparations(revision, video);
                 CREATE INDEX passage_videos ON passages(video, fingerprint);
                 PRAGMA user_version = 4;
+            `);
+        }
+
+        if (version < 5) {
+            opened.exec("ALTER TABLE videos ADD COLUMN search_revision INTEGER NOT NULL DEFAULT 0");
+
+            const update = opened.prepare(
+                "UPDATE videos SET title = ?, description = ?, search_revision = ? WHERE identifier = ?",
+            );
+
+            for (const row of opened
+                .prepare(`
+                    SELECT identifier, json_extract(data, '$.title') AS title,
+                        json_extract(data, '$.description') AS description FROM videos
+                `)
+                .iterate()) {
+                update.run(
+                    String(row.title ?? "").normalize("NFKD"),
+                    searchableDescription(String(row.description ?? "")),
+                    searchRevision,
+                    String(row.identifier),
+                );
+            }
+        }
+
+        if (version < 6) {
+            opened.exec(`
+                DROP TRIGGER IF EXISTS neighbors_insert;
+                DROP TRIGGER IF EXISTS neighbors_update;
+                DROP TRIGGER IF EXISTS neighbors_delete;
+                DROP TRIGGER IF EXISTS passages_insert;
+                DROP TRIGGER IF EXISTS passages_delete;
+                DROP TRIGGER IF EXISTS neighbors_availability;
+                DROP TABLE IF EXISTS identifiers;
+                DROP TABLE IF EXISTS neighbors;
+                DROP INDEX IF EXISTS vector_fingerprints;
+                DELETE FROM state WHERE name = 'neighbors';
+                CREATE TABLE identifiers (
+                    identifier INTEGER PRIMARY KEY AUTOINCREMENT,
+                    identity TEXT NOT NULL,
+                    fingerprint TEXT NOT NULL,
+                    UNIQUE(identity, fingerprint),
+                    FOREIGN KEY(identity, fingerprint) REFERENCES vectors(identity, fingerprint)
+                        ON DELETE CASCADE ON UPDATE CASCADE
+                ) STRICT;
+                CREATE INDEX identifier_fingerprints ON identifiers(fingerprint);
+                CREATE INDEX vector_fingerprints ON vectors(fingerprint);
+                INSERT INTO identifiers(identity, fingerprint)
+                    SELECT identity, fingerprint FROM vectors
+                    WHERE EXISTS (SELECT 1 FROM passages WHERE passages.fingerprint = vectors.fingerprint)
+                    ORDER BY identity, fingerprint;
+                CREATE TABLE neighbors (
+                    position INTEGER PRIMARY KEY AUTOINCREMENT,
+                    identifier INTEGER NOT NULL
+                ) STRICT;
+                CREATE TRIGGER identifiers_insert AFTER INSERT ON identifiers BEGIN
+                    INSERT INTO neighbors(identifier) VALUES (new.identifier);
+                END;
+                CREATE TRIGGER identifiers_delete AFTER DELETE ON identifiers BEGIN
+                    INSERT INTO neighbors(identifier) VALUES (old.identifier);
+                END;
+                CREATE TRIGGER neighbors_insert AFTER INSERT ON vectors
+                WHEN EXISTS (SELECT 1 FROM passages WHERE fingerprint = new.fingerprint) BEGIN
+                    INSERT INTO identifiers(identity, fingerprint) VALUES (new.identity, new.fingerprint)
+                        ON CONFLICT DO NOTHING;
+                END;
+                CREATE TRIGGER neighbors_update AFTER UPDATE ON vectors
+                WHEN old.identity != new.identity OR old.fingerprint != new.fingerprint OR old.vector != new.vector BEGIN
+                    INSERT INTO identifiers(identity, fingerprint)
+                        SELECT new.identity, new.fingerprint
+                        WHERE EXISTS (SELECT 1 FROM passages WHERE fingerprint = new.fingerprint)
+                        ON CONFLICT DO NOTHING;
+                    INSERT INTO neighbors(identifier)
+                        SELECT identifier FROM identifiers WHERE identity = new.identity AND fingerprint = new.fingerprint;
+                END;
+                CREATE TRIGGER passages_insert AFTER INSERT ON passages BEGIN
+                    INSERT INTO identifiers(identity, fingerprint)
+                        SELECT identity, fingerprint FROM vectors WHERE fingerprint = new.fingerprint
+                        ON CONFLICT DO NOTHING;
+                    INSERT INTO neighbors(identifier)
+                        SELECT identifier FROM identifiers WHERE fingerprint = new.fingerprint;
+                END;
+                CREATE TRIGGER passages_delete AFTER DELETE ON passages BEGIN
+                    INSERT INTO neighbors(identifier)
+                        SELECT identifier FROM identifiers WHERE fingerprint = old.fingerprint;
+                END;
+                CREATE TRIGGER neighbors_availability AFTER UPDATE OF availability ON videos
+                WHEN old.availability != new.availability BEGIN
+                    INSERT INTO neighbors(identifier)
+                    SELECT DISTINCT identifiers.identifier FROM identifiers JOIN passages
+                        ON passages.fingerprint = identifiers.fingerprint WHERE passages.video = new.identifier;
+                END;
+                PRAGMA user_version = 6;
             `);
         }
 

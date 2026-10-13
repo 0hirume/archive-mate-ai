@@ -1,13 +1,15 @@
 import type { SQLInputValue } from "node:sqlite";
 
 import type { Filters, RetrievalOptions, Result, Video } from "../shared/metadata.ts";
+import type { NeighborIndex } from "./neighbors.ts";
 import type { Evidence } from "./passages.ts";
 
 import { orders } from "../shared/metadata.ts";
 import { parseVideo } from "./catalog.ts";
 import { database } from "./database.ts";
-import { decodeVector, embed, semanticCoverage } from "./embeddings.ts";
+import { embed, semanticCoverage } from "./embeddings.ts";
 import { embeddingIdentity } from "./model.ts";
+import { neighborIndex } from "./neighbors.ts";
 import { preparationRevision, preparePassages } from "./passages.ts";
 import { sources } from "./sources.ts";
 import { choice, date, Failure, list, object, text } from "./validation.ts";
@@ -18,7 +20,8 @@ const ignored: Record<string, true> = Object.fromEntries(
         .map((word) => [word, true]),
 );
 
-const semanticCandidateLimit = 120;
+const candidateLimit = 120;
+const maximumNeighbors = 4096;
 
 interface Hit {
     identifier: string;
@@ -28,7 +31,6 @@ interface Hit {
     keyword: number;
     semantic: number | null;
     score: number;
-    passages: { passage: Evidence; score: number }[];
 }
 
 export function filters(value: unknown): Filters {
@@ -105,22 +107,25 @@ export async function retrieve(
         ...new Set(terms.flatMap((term) => normalize(term).split(" ")).filter((token) => token && !ignored[token])),
     ].slice(0, 40);
 
-    const phrases = terms.map(normalize).filter((phrase) => phrase.includes(" "));
-    const query = [...tokens, ...phrases].map((term) => `"${term}"`).join(" OR ");
+    const phrases = terms
+        .map(normalize)
+        .filter((phrase) => phrase.includes(" ") && tokens.some((token) => phrase.split(" ").includes(token)));
+
+    const query = tokens.length ? [...tokens, ...phrases].map((term) => `"${term}"`).join(" OR ") : "";
     const intent = (options.query ?? terms.join(" ")).trim();
     const conditions = ["videos.availability = 'available'"];
     const parameters: SQLInputValue[] = [];
 
     if (selection.categories.length) {
-        conditions.push(`videos.identifier IN (
-            SELECT video FROM memberships WHERE category IN (${selection.categories.map(() => "?").join(", ")})
+        conditions.push(`EXISTS (
+            SELECT 1 FROM memberships WHERE video = videos.identifier AND category IN (${selection.categories.map(() => "?").join(", ")})
         )`);
         parameters.push(...selection.categories);
     }
 
     if (selection.playlists.length) {
-        conditions.push(`videos.identifier IN (
-            SELECT video FROM memberships WHERE playlist IN (${selection.playlists.map(() => "?").join(", ")})
+        conditions.push(`EXISTS (
+            SELECT 1 FROM memberships WHERE video = videos.identifier AND playlist IN (${selection.playlists.map(() => "?").join(", ")})
         )`);
         parameters.push(...selection.playlists);
     }
@@ -156,21 +161,32 @@ export async function retrieve(
 
     const where = conditions.join(" AND ");
     let vector: Float32Array | null = null;
+    let native: NeighborIndex | null = null;
     let coverage: string | null = null;
     let notice = "";
 
     if (options.semantic && intent) {
         try {
+            native = neighborIndex();
             const status = semanticCoverage();
-            coverage = `${status.indexed}/${status.total} complete videos; ${status.embedded}/${status.passages} prepared passages`;
+            coverage = `${status.indexed}/${status.total} complete videos; ${status.embedded}/${status.passages} prepared passages; ${native.index.size()} native vectors`;
 
-            if (!status.embedded) {
-                notice = "Semantic index is empty. Showing keyword matches.";
+            if (native.pending) {
+                notice = `Native index is catching up: ${native.pending} saved changes remain. `;
+            }
+
+            if (native.rejected) {
+                notice += "Invalid saved vectors were excluded. ";
+            }
+
+            if (!status.embedded || !native.index.size()) {
+                notice += "Semantic index is empty. Showing keyword matches.";
             } else {
                 vector = (await embed(`query: ${intent}`, options.signal)).vector;
             }
         } catch {
-            notice = "Semantic search is unavailable. Showing keyword matches.";
+            notice =
+                "Semantic search is unavailable. Build or refresh the saved-vector index with bun run index --neighbors. Showing keyword matches.";
         }
     }
 
@@ -204,32 +220,85 @@ export async function retrieve(
             return { results, total, passages, notice, coverage };
         }
 
+        const keywordSource = `
+            FROM videos JOIN footage ON footage.rowid = videos.rowid
+            WHERE ${where} AND footage MATCH ?
+        `;
+        const keywordParameters = [...parameters, query];
+
+        const keywordTotal = query
+            ? Number(connection.prepare(`SELECT COUNT(*) AS total ${keywordSource}`).get(...keywordParameters)!.total)
+            : 0;
+
+        const keywordOrder =
+            selection.order === "relevance"
+                ? "bm25(footage, 6, 1, 3), videos.published DESC"
+                : sorting[selection.order];
+
+        const metadata = connection.prepare("SELECT data FROM videos WHERE identifier = ?");
+
+        function materialize(data: unknown, keyword: boolean, semantic: boolean, evidence: Evidence[] = []): Result {
+            const video = parseVideo(JSON.parse(String(data)));
+            const matched = [...evidence, ...keywordPassages(video, tokens).map((match) => match.passage)];
+
+            passages[video.identifier] = matched
+                .filter(
+                    (passage, position) =>
+                        passage.field === "description" &&
+                        video[passage.field].slice(passage.start, passage.finish) === passage.excerpt &&
+                        matched.findIndex(
+                            (other) =>
+                                other.field === passage.field &&
+                                other.start === passage.start &&
+                                other.finish === passage.finish,
+                        ) === position,
+                )
+                .slice(0, 4);
+
+            const constituent =
+                keyword && semantic
+                    ? "keyword and semantic relevance"
+                    : semantic
+                      ? "multilingual semantic relevance"
+                      : "keyword relevance";
+
+            return { video, explanation: `Ranked by ${constituent} in source metadata.` };
+        }
+
+        function keywordResults(): Result[] {
+            if (!query) {
+                return [];
+            }
+
+            return connection
+                .prepare(
+                    `SELECT videos.identifier ${keywordSource} ORDER BY ${keywordOrder}, videos.identifier LIMIT ? OFFSET ?`,
+                )
+                .all(...keywordParameters, limit, offset)
+                .map((row) => materialize(metadata.get(String(row.identifier))!.data, true, false));
+        }
+
+        if (!vector || !native) {
+            const results = keywordResults();
+            connection.exec("COMMIT");
+
+            return { results, total: keywordTotal, passages, notice, coverage };
+        }
+
         const hits = new Map<string, Hit>();
 
         if (query) {
             const rows = connection
                 .prepare(`
-                SELECT videos.identifier, videos.published, videos.title, videos.description, videos.categories${sortKeys}
-                FROM videos JOIN footage ON footage.rowid = videos.rowid
-                WHERE ${where} AND footage MATCH ?
-                ORDER BY bm25(footage, 6, 1, 3), videos.published DESC, videos.identifier
+                SELECT videos.identifier, videos.published${sortKeys}
+                ${keywordSource}
+                ORDER BY ${keywordOrder}, videos.identifier LIMIT ?
             `)
-                .iterate(...parameters, query);
+                .all(...keywordParameters, candidateLimit);
 
             let rank = 0;
 
             for (const row of rows) {
-                const title = String(row.title);
-                const words = new Set(normalize(`${title} ${String(row.categories)}`).split(" "));
-
-                if (
-                    !tokens.some((token) => words.has(token)) &&
-                    !keywordPassages({ title, description: String(row.description), memberships: [] }, tokens).length
-                ) {
-                    continue;
-                }
-
-                rank++;
                 const identifier = String(row.identifier);
 
                 hits.set(identifier, {
@@ -237,99 +306,100 @@ export async function retrieve(
                     published: String(row.published || ""),
                     title: row.title_sort as Uint8Array | undefined,
                     duration: row.duration == null ? null : Number(row.duration),
-                    keyword: rank,
+                    keyword: ++rank,
                     semantic: null,
                     score: 1 / (60 + rank),
-                    passages: [],
                 });
             }
         }
 
-        let invalidVectors = 0;
+        let evidenceSource = "";
+        let evidenceParameters: SQLInputValue[] = [];
+        let neighborCount = 0;
 
-        if (vector) {
-            try {
-                const semantic = new Map<string, Hit>();
+        try {
+            let requested = Math.min(native.index.size(), candidateLimit * 4);
+            let semantic: Hit[] = [];
+
+            while (requested > 0) {
+                if (options.signal?.aborted) {
+                    throw new Failure("Search was interrupted.", 504);
+                }
+
+                const neighbors = native.index.search(vector, requested, 1);
+
+                if (neighbors.keys.length !== neighbors.distances.length) {
+                    throw new Error("Native neighbor results are inconsistent.");
+                }
+
+                if (!neighbors.keys.length) {
+                    break;
+                }
+
+                neighborCount = neighbors.keys.length;
+                evidenceParameters = [];
+
+                for (const [position, key] of neighbors.keys.entries()) {
+                    const distance = neighbors.distances[position]!;
+
+                    if (key <= 0n || !Number.isSafeInteger(Number(key)) || !Number.isFinite(distance)) {
+                        throw new Error("Native neighbor results contain an invalid key or distance.");
+                    }
+
+                    evidenceParameters.push(key, 1 - distance);
+                }
+
+                evidenceSource = `WITH candidates(identifier, similarity) AS (
+                    VALUES ${Array.from({ length: neighborCount }, () => "(?, ?)").join(", ")}
+                )`;
 
                 const rows = connection
                     .prepare(`
-                    SELECT videos.identifier, videos.published${sortKeys}, passages.field, passages.start, passages.finish, passages.excerpt, vectors.vector
-                    FROM videos JOIN preparations ON preparations.video = videos.identifier
-                    JOIN passages ON passages.video = videos.identifier
-                    JOIN vectors ON vectors.fingerprint = passages.fingerprint AND vectors.identity = ?
+                    ${evidenceSource}
+                    SELECT videos.identifier, videos.published${sortKeys}, MAX(candidates.similarity) AS similarity
+                    FROM candidates CROSS JOIN identifiers ON identifiers.identifier = candidates.identifier AND identifiers.identity = ?
+                    CROSS JOIN passages ON passages.fingerprint = identifiers.fingerprint
+                    CROSS JOIN preparations ON preparations.video = passages.video
+                    CROSS JOIN videos ON videos.identifier = passages.video
                     WHERE ${where} AND preparations.revision = ?
-                    ORDER BY videos.identifier, passages.position
+                    GROUP BY videos.identifier
+                    ORDER BY similarity DESC, videos.published DESC, videos.identifier LIMIT ?
                 `)
-                    .iterate(embeddingIdentity, ...parameters, preparationRevision);
+                    .all(...evidenceParameters, embeddingIdentity, ...parameters, preparationRevision, candidateLimit);
 
-                for (const row of rows) {
-                    let candidate: Float32Array;
+                semantic = rows.map((row) => ({
+                    identifier: String(row.identifier),
+                    published: String(row.published || ""),
+                    title: row.title_sort instanceof Uint8Array ? row.title_sort : undefined,
+                    duration: row.duration == null ? null : Number(row.duration),
+                    keyword: 0,
+                    semantic: Number(row.similarity),
+                    score: 0,
+                }));
 
-                    try {
-                        candidate = decodeVector(row.vector);
-                    } catch {
-                        invalidVectors++;
-                        continue;
-                    }
-
-                    let similarity = 0;
-
-                    for (let position = 0; position < vector.length; position++) {
-                        similarity += vector[position]! * candidate[position]!;
-                    }
-
-                    const identifier = String(row.identifier);
-
-                    const hit: Hit = semantic.get(identifier) || {
-                        identifier,
-                        published: String(row.published || ""),
-                        title: row.title_sort as Uint8Array | undefined,
-                        duration: row.duration == null ? null : Number(row.duration),
-                        keyword: 0,
-                        semantic: null,
-                        score: 0,
-                        passages: [],
-                    };
-
-                    hit.semantic = Math.max(hit.semantic ?? -Infinity, similarity);
-
-                    hit.passages.push({
-                        passage: {
-                            field: choice(row.field, ["title", "description"]),
-                            start: Number(row.start),
-                            finish: Number(row.finish),
-                            excerpt: String(row.excerpt),
-                        },
-
-                        score: similarity,
-                    });
-
-                    semantic.set(identifier, hit);
+                if (semantic.length >= candidateLimit || requested >= Math.min(native.index.size(), maximumNeighbors)) {
+                    break;
                 }
 
-                const ordered = [...semantic.values()]
-                    .sort(
-                        (first, second) =>
-                            (second.semantic ?? -Infinity) - (first.semantic ?? -Infinity) ||
-                            second.published.localeCompare(first.published) ||
-                            first.identifier.localeCompare(second.identifier),
-                    )
-                    .slice(0, semanticCandidateLimit);
-
-                for (const [position, match] of ordered.entries()) {
-                    const hit = hits.get(match.identifier) || match;
-                    hit.semantic = match.semantic;
-                    hit.passages = match.passages.sort((first, second) => second.score - first.score);
-                    hit.score += 1 / (60 + position + 1);
-                    hits.set(match.identifier, hit);
-                }
-            } catch {
-                notice = "Semantic index could not be read. Showing keyword matches.";
+                requested = Math.min(requested * 2, native.index.size(), maximumNeighbors);
             }
-        }
 
-        if (invalidVectors) {
-            notice += ` ${invalidVectors} invalid stored passage vectors were excluded.`;
+            for (const [position, match] of semantic.entries()) {
+                const hit = hits.get(match.identifier) || match;
+                hit.semantic = match.semantic;
+                hit.score += 1 / (60 + position + 1);
+                hits.set(match.identifier, hit);
+            }
+        } catch (error) {
+            if (options.signal?.aborted) {
+                throw error;
+            }
+
+            notice = "Semantic index could not be read. Showing keyword matches.";
+            const results = keywordResults();
+            connection.exec("COMMIT");
+
+            return { results, total: keywordTotal, passages, notice, coverage };
         }
 
         const compare = (first: string, second: string) => (first < second ? -1 : first > second ? 1 : 0);
@@ -358,37 +428,31 @@ export async function retrieve(
             );
         });
 
+        const semanticPassages = evidenceSource
+            ? connection.prepare(`
+            ${evidenceSource}
+            SELECT passages.start, passages.finish, passages.excerpt
+            FROM candidates JOIN identifiers ON identifiers.identifier = candidates.identifier AND identifiers.identity = ?
+            JOIN passages ON passages.fingerprint = identifiers.fingerprint
+            WHERE passages.video = ? AND passages.field = 'description'
+            ORDER BY candidates.similarity DESC, passages.position LIMIT 4
+        `)
+            : null;
+
         const results: Result[] = ordered.slice(offset, offset + limit).map((hit) => {
-            const row = connection.prepare("SELECT data FROM videos WHERE identifier = ?").get(hit.identifier)!;
-            const video = parseVideo(JSON.parse(String(row.data)));
-            const matched = hit.passages.map((match) => match.passage);
-            matched.push(...keywordPassages(video, tokens).map((match) => match.passage));
+            const row = metadata.get(hit.identifier)!;
 
-            passages[hit.identifier] = matched
-                .filter(
-                    (passage, position) =>
-                        passage.field === "description" &&
-                        video[passage.field].slice(passage.start, passage.finish) === passage.excerpt &&
-                        matched.findIndex(
-                            (other) =>
-                                other.field === passage.field &&
-                                other.start === passage.start &&
-                                other.finish === passage.finish,
-                        ) === position,
-                )
-                .slice(0, 4);
+            const evidence: Evidence[] =
+                hit.semantic !== null && semanticPassages
+                    ? semanticPassages.all(...evidenceParameters, embeddingIdentity, hit.identifier).map((passage) => ({
+                          field: "description",
+                          start: Number(passage.start),
+                          finish: Number(passage.finish),
+                          excerpt: String(passage.excerpt),
+                      }))
+                    : [];
 
-            const constituent =
-                hit.keyword && hit.semantic !== null
-                    ? "keyword and semantic relevance"
-                    : hit.semantic !== null
-                      ? "multilingual semantic relevance"
-                      : "keyword relevance";
-
-            return {
-                video,
-                explanation: `Ranked by ${constituent} in source metadata.`,
-            };
+            return materialize(row.data, Boolean(hit.keyword), hit.semantic !== null, evidence);
         });
 
         connection.exec("COMMIT");

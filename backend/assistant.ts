@@ -258,11 +258,11 @@ export async function converse(value: unknown): Promise<ChatResponse> {
                 message,
                 interpreted: { terms, query, ...selection },
                 candidates,
-                totalMetadataMatches: matches.total,
+                retrievalCandidateTotal: matches.total,
                 retrievalCoverage: matches.coverage,
                 retrievalNotice: matches.notice,
             },
-            "Rank and explain only these candidates. Description arrays contain actual matched passages from original source metadata with character offsets, not video transcripts. Return at most 8 unique identifiers. Every recommendation must include an exact excerpt copied from the supplied title, a description passage's excerpt, or a category. Explanations describe possible relevance and uncertainty. The message should introduce the metadata recommendations without adding unsupported facts. With no candidates, return an empty recommendations array and state that no matching videos were found in the available metadata, not that footage is absent. Incomplete semantic coverage or keyword-only retrieval is not evidence of footage absence.",
+            "Rank and explain only these candidates. Retrieval totals are not exhaustive semantic match counts; honor the supplied coverage and notice. Description arrays contain actual matched passages from original source metadata with character offsets, not video transcripts. Return at most 8 unique identifiers. Every recommendation must include an exact excerpt copied from the supplied title, a description passage's excerpt, or a category. Explanations describe possible relevance and uncertainty. The message should introduce the metadata recommendations without adding unsupported facts. With no candidates, return an empty recommendations array and state that no matching videos were found in the available metadata, not that footage is absent. Incomplete semantic coverage or keyword-only retrieval is not evidence of footage absence.",
         );
 
         const results: Result[] = [];

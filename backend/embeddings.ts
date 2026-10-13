@@ -1,3 +1,5 @@
+import type { SQLOutputValue } from "node:sqlite";
+
 import type { Video } from "../shared/metadata.ts";
 import type { Passage } from "./passages.ts";
 
@@ -12,6 +14,8 @@ import {
 } from "./model.ts";
 
 import { fingerprint, preparationRevision, sourceFingerprint } from "./passages.ts";
+
+let coverage: { version: number; changes: number; counts: Record<string, SQLOutputValue> } | null = null;
 
 export function prepareVideo(video: Video, passages: Passage[]): void {
     const connection = database();
@@ -56,8 +60,12 @@ export function prepareVideo(video: Video, passages: Passage[]): void {
 export function semanticCoverage() {
     const connection = database();
 
-    const counts = connection
-        .prepare(`
+    const version = Number(connection.prepare("PRAGMA data_version").get()!.data_version);
+    const changes = Number(connection.prepare("SELECT total_changes() AS total").get()!.total);
+
+    if (!coverage || coverage.version !== version || coverage.changes !== changes) {
+        const counts = connection
+            .prepare(`
         SELECT COUNT(*) AS total,
             COALESCE(SUM(prepared), 0) AS prepared,
             COALESCE(SUM(passages > 0 AND passages = embedded), 0) AS indexed,
@@ -76,7 +84,12 @@ export function semanticCoverage() {
             GROUP BY videos.identifier
         )
     `)
-        .get(embeddingIdentity, preparationRevision)!;
+            .get(embeddingIdentity, preparationRevision)!;
+
+        coverage = { version, changes, counts };
+    }
+
+    const counts = coverage.counts;
 
     return {
         model: embeddingModel,
@@ -177,9 +190,15 @@ export async function embed(
         buffer.writeFloatLE(component, position * 4);
     }
 
+    const changes = Number(connection.prepare("SELECT total_changes() AS total").get()!.total);
+
     connection
         .prepare("INSERT INTO vectors(identity, fingerprint, vector) VALUES (?, ?, ?) ON CONFLICT DO NOTHING")
         .run(embeddingIdentity, signature, buffer);
+
+    if (coverage && content.startsWith("query: ") && coverage.changes === changes) {
+        coverage.changes = Number(connection.prepare("SELECT total_changes() AS total").get()!.total);
+    }
 
     return { vector, computed: true };
 }

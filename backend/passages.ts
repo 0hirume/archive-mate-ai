@@ -4,6 +4,7 @@ import type { Video } from "../shared/metadata.ts";
 import type { Tokenizer } from "./model.ts";
 
 export const preparationRevision = 2;
+export const searchRevision = 1;
 
 const promotionalTags: Record<string, true> = Object.fromEntries(
     "#abscbnnews #latestnews #tvpatrol #anc #ancnews #teleradyo #anclive #kapamilya"
@@ -48,6 +49,46 @@ function promotional(value: string): boolean {
             .split(/\s+/)
             .every((tag) => promotionalTags[tag])
     );
+}
+
+function descriptionRanges(description: string): { start: number; finish: number }[] {
+    const ranges: { start: number; finish: number }[] = [];
+    let beginning: number | null = null;
+    let finish = 0;
+
+    function flush(): void {
+        if (beginning !== null) {
+            ranges.push({ start: beginning, finish });
+            beginning = null;
+        }
+    }
+
+    for (const match of description.matchAll(/[^\r\n]+/g)) {
+        const line = match[0];
+        const trimmed = line.trim();
+
+        if (!trimmed || promotional(trimmed)) {
+            flush();
+            continue;
+        }
+
+        if (beginning === null) {
+            beginning = match.index + line.indexOf(trimmed);
+        }
+
+        finish = match.index + line.lastIndexOf(trimmed) + trimmed.length;
+    }
+
+    flush();
+
+    return ranges;
+}
+
+export function searchableDescription(description: string): string {
+    return descriptionRanges(description)
+        .map(({ start, finish }) => description.slice(start, finish))
+        .join("\n")
+        .normalize("NFKD");
 }
 
 export function preparePassages(
@@ -150,36 +191,10 @@ export function preparePassages(
     }
 
     append("title", 0, video.title.length);
-    const description = video.description;
-    let beginning: number | null = null;
-    let finish = 0;
 
-    function flush(): void {
-        if (beginning === null) {
-            return;
-        }
-
-        append("description", beginning, finish);
-        beginning = null;
+    for (const { start, finish } of descriptionRanges(video.description)) {
+        append("description", start, finish);
     }
-
-    for (const match of description.matchAll(/[^\r\n]+/g)) {
-        const line = match[0];
-        const trimmed = line.trim();
-
-        if (!trimmed || promotional(trimmed)) {
-            flush();
-            continue;
-        }
-
-        if (beginning === null) {
-            beginning = match.index + line.indexOf(trimmed);
-        }
-
-        finish = match.index + line.lastIndexOf(trimmed) + trimmed.length;
-    }
-
-    flush();
 
     return passages;
 }

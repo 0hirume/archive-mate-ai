@@ -6,6 +6,7 @@ import { parseVideo } from "./catalog.ts";
 import { database } from "./database.ts";
 import { embed, prepareVideo, semanticCoverage } from "./embeddings.ts";
 import { embeddingDimensions, embeddingIdentity, loadExtraction, loadTokenizer, modelDirectory } from "./model.ts";
+import { saveNeighbors } from "./neighbors.ts";
 import { preparationRevision, preparePassages, sourceFingerprint } from "./passages.ts";
 import { catalogPath } from "./settings.ts";
 import { sources } from "./sources.ts";
@@ -36,6 +37,7 @@ async function index(): Promise<void> {
     const preparation = arguments_.includes("--prepare");
     const download = arguments_.includes("--download");
     const status = arguments_.includes("--status");
+    const neighbors = arguments_.includes("--neighbors");
 
     if (
         new Set(arguments_).size !== arguments_.length ||
@@ -46,6 +48,7 @@ async function index(): Promise<void> {
                     "--dry-run",
                     "--prepare",
                     "--download",
+                    "--neighbors",
                     limitOption,
                     inferencesOption,
                     categoryOption,
@@ -57,13 +60,13 @@ async function index(): Promise<void> {
         (limitOption !== undefined && (!Number.isSafeInteger(limit) || limit < 1)) ||
         (inferencesOption !== undefined && (!Number.isSafeInteger(maximumInferences) || maximumInferences < 1)) ||
         (categoryOption !== undefined && !sources.some((source) => source.category === category)) ||
-        Number(dryRun) + Number(preparation) + Number(download) + Number(status) > 1 ||
-        ((status || download) && arguments_.length > 1) ||
+        Number(dryRun) + Number(preparation) + Number(download) + Number(status) + Number(neighbors) > 1 ||
+        ((status || download || neighbors) && arguments_.length > 1) ||
         ((dryRun || preparation) && inferencesOption !== undefined) ||
         (dryRun && limitOption !== undefined)
     ) {
         throw new Error(
-            "Use bun run index to process all missing or stale available metadata; optional --limit=<positive integer>, --maximum-inferences=<positive integer>, and --category=<exact category> bound the work. Other modes: --status, --dry-run, --prepare, --download. All embeddings run locally; only --download permits model downloads.",
+            "Use bun run index to process all missing or stale available metadata; optional --limit=<positive integer>, --maximum-inferences=<positive integer>, and --category=<exact category> bound the work. Other modes: --status, --dry-run, --prepare, --download, --neighbors. The neighbors mode builds native retrieval from saved vectors without embeddings. All embeddings run locally; only --download permits model downloads.",
         );
     }
 
@@ -83,6 +86,13 @@ async function index(): Promise<void> {
         console.info(
             JSON.stringify({ coverage: semanticCoverage(), lastRun: report ? JSON.parse(String(report.data)) : null }),
         );
+
+        return;
+    }
+
+    if (neighbors) {
+        console.info("Building native neighbor retrieval from saved local vectors.");
+        console.info(JSON.stringify({ neighbors: saveNeighbors() }));
 
         return;
     }
@@ -412,6 +422,22 @@ async function index(): Promise<void> {
 
             checkpoint();
             const coverage = semanticCoverage();
+
+            if (!preparation && report.outcome !== "interrupted" && report.outcome !== "failed") {
+                console.info("Updating native neighbor retrieval from saved local vectors.");
+
+                try {
+                    console.info(JSON.stringify({ neighbors: saveNeighbors() }));
+                } catch (error) {
+                    report.outcome = "failed";
+
+                    report.failure =
+                        error instanceof Error ? error.message : "Native neighbor snapshot could not be saved.";
+
+                    process.exitCode = 1;
+                    checkpoint();
+                }
+            }
 
             if (preparation) {
                 console.info(JSON.stringify({ coverage }));

@@ -1,6 +1,7 @@
 import type { Catalog, Chapter, Coverage, Ingestion, SourceStatus, SourceSummary, Video } from "../shared/metadata.ts";
 
 import { database } from "./database.ts";
+import { searchRevision, searchableDescription } from "./passages.ts";
 import { durationSeconds, titleKey } from "./sort.ts";
 import { sources } from "./sources.ts";
 import { choice, instant, integer, list, nullableText, object, text } from "./validation.ts";
@@ -283,14 +284,14 @@ export function writeCatalog(catalog: Catalog, changed: Video[]): void {
         ON CONFLICT(identifier) DO UPDATE SET data = excluded.data WHERE data != excluded.data
     `);
     const video = connection.prepare(`
-        INSERT INTO videos(identifier, title, description, categories, published, availability, details, data, duration, title_sort)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO videos(identifier, title, description, categories, published, availability, details, data, duration, title_sort, search_revision)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(identifier) DO UPDATE SET
             title = excluded.title, description = excluded.description, categories = excluded.categories,
             published = excluded.published, availability = excluded.availability,
             details = excluded.details, data = excluded.data,
-            duration = excluded.duration, title_sort = excluded.title_sort
-        WHERE data != excluded.data
+            duration = excluded.duration, title_sort = excluded.title_sort, search_revision = excluded.search_revision
+        WHERE data != excluded.data OR search_revision != excluded.search_revision
     `);
     const remove = connection.prepare("DELETE FROM memberships WHERE video = ?");
 
@@ -313,7 +314,7 @@ export function writeCatalog(catalog: Catalog, changed: Video[]): void {
             const result = video.run(
                 validated.identifier,
                 validated.title.normalize("NFKD"),
-                validated.description.normalize("NFKD"),
+                searchableDescription(validated.description),
                 categories.normalize("NFKD"),
                 validated.publishedAt,
                 validated.availability,
@@ -321,6 +322,7 @@ export function writeCatalog(catalog: Catalog, changed: Video[]): void {
                 JSON.stringify(validated),
                 durationSeconds(validated.duration),
                 titleKey(validated.title),
+                searchRevision,
             );
 
             if (result.changes) {
