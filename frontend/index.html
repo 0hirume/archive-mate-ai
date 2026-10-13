@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            name="description"
+            content="Search broadcast video metadata, compare sources, and refine a research lead with Archie on one desk."
+        />
+        <title>ArchiveMateAI · Broadcast archive workspace</title>
+        <script>
+            try {
+                const stored = localStorage.getItem("archive-mate-theme");
+                document.documentElement.dataset.theme = stored === "dark" ? "dark" : "light";
+            } catch {}
+        </script>
+    </head>
+    <body
+        class="min-h-dvh min-w-80 font-sans text-base leading-normal wrap-anywhere [&_button]:touch-manipulation [&_a]:touch-manipulation [&_button]:whitespace-normal forced-colors:[&_button]:border forced-colors:[&_button]:border-[ButtonText] motion-reduce:[&_*]:animate-none motion-reduce:[&_*]:transition-none motion-reduce:[&_*]:scroll-auto motion-reduce:[&_*::before]:animate-none motion-reduce:[&_*::before]:transition-none motion-reduce:[&_*::after]:animate-none motion-reduce:[&_*::after]:transition-none"
+    >
+        <div id="root"></div>
+        <script type="module" src="/main.tsx"></script>
+    </body>
+</html>

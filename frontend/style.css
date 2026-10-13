@@ -1,0 +1,194 @@
+@import "tailwindcss";
+
+@theme {
+    --color-surface: #f5f3ee;
+    --color-surface-raised: #ffffff;
+    --color-surface-muted: #f5f3ee;
+    --color-foreground: #252b2e;
+    --color-muted: #666a6c;
+    --color-border: #deddd6;
+    --color-accent: #285cc7;
+    --color-accent-foreground: #ffffff;
+    --color-conversation: #303c48;
+    --color-conversation-foreground: #ffffff;
+    --color-danger: #b42335;
+    --color-danger-foreground: #ffffff;
+    --color-warning: #875500;
+    --color-warning-foreground: #ffffff;
+    --color-success: #216b47;
+    --color-success-foreground: #ffffff;
+}
+
+@layer base {
+    :root {
+        color-scheme: light;
+    }
+
+    [data-theme="dark"] {
+        color-scheme: dark;
+        --color-surface: #20262e;
+        --color-surface-raised: #2a303c;
+        --color-surface-muted: #242b35;
+        --color-foreground: #e5e7eb;
+        --color-muted: #b2b7c0;
+        --color-border: #46505e;
+        --color-accent: #9cbcff;
+        --color-accent-foreground: #17274b;
+        --color-conversation: #3a495f;
+        --color-conversation-foreground: #f4f6fa;
+        --color-danger: #ff9aa7;
+        --color-danger-foreground: #45151e;
+        --color-warning: #f1cc79;
+        --color-warning-foreground: #3d2a08;
+        --color-success: #8ad9b1;
+        --color-success-foreground: #103524;
+    }
+
+    body {
+        @apply bg-surface text-foreground;
+    }
+
+    button:not(:disabled),
+    a[href],
+    select:not(:disabled) {
+        cursor: pointer;
+    }
+
+    button:disabled,
+    select:disabled,
+    textarea:disabled,
+    input:disabled {
+        cursor: not-allowed;
+    }
+
+    button:not(:disabled):active,
+    a[href]:active {
+        opacity: 0.8;
+    }
+
+    * {
+        scrollbar-color: var(--color-border) var(--color-surface-raised);
+        text-underline-offset: 0.2em;
+    }
+
+    ::selection {
+        @apply bg-accent/20 text-foreground;
+    }
+
+    input,
+    textarea {
+        caret-color: var(--color-accent);
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        @apply text-muted;
+        opacity: 1;
+    }
+
+    :focus-visible {
+        @apply outline-2 outline-offset-2 outline-accent;
+    }
+}
+
+@layer components {
+    .action {
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-sm px-4 py-2 text-sm font-semibold disabled:opacity-50;
+    }
+
+    .field {
+        @apply rounded-sm border border-border bg-surface-raised px-3 py-2 text-base disabled:opacity-50;
+    }
+
+    .popup {
+        @apply rounded-lg border border-border bg-surface-raised p-2 text-foreground;
+    }
+
+    .message-bubble {
+        @apply relative min-w-0 rounded-sm px-4 py-2 text-base leading-relaxed break-words;
+    }
+
+    .message-bubble::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        width: 0.5rem;
+        height: 0.5rem;
+        background: inherit;
+    }
+
+    .message-bubble[data-speaker="archie"] {
+        border-bottom-left-radius: 0;
+    }
+
+    .message-bubble[data-speaker="archie"]::after {
+        left: -0.5rem;
+        clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    }
+
+    .message-bubble[data-speaker="you"] {
+        border-bottom-right-radius: 0;
+    }
+
+    .message-bubble[data-speaker="you"]::after {
+        right: -0.5rem;
+        clip-path: polygon(0 0, 100% 100%, 0 100%);
+    }
+
+    .utility-sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        margin: 0;
+        width: min(16rem, 90vw);
+        max-width: none;
+        height: 100dvh;
+        max-height: none;
+        padding: 0;
+        border: 0;
+        border-right: 1px solid var(--color-border);
+    }
+
+    @media (min-width: 1024px) {
+        .workspace-shell {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .utility-sidebar {
+            position: sticky;
+            top: 0;
+            flex: 0 0 14rem;
+            width: 14rem;
+        }
+
+        .utility-sidebar-collapsed {
+            flex-basis: 4.5rem;
+            width: 4.5rem;
+        }
+    }
+}
+
+@keyframes typing {
+    0%,
+    60%,
+    100% {
+        opacity: 0.35;
+    }
+    30% {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .typing > span {
+        animation: typing 1.2s ease-in-out infinite;
+    }
+
+    .typing > span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .typing > span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+}
