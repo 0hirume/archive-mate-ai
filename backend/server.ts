@@ -8,6 +8,7 @@ import { extname, resolve, sep } from "node:path";
 import type { Status } from "../shared/metadata.ts";
 
 import { clearSession, converse } from "./assistant.ts";
+import { bootstrap } from "./bootstrap.ts";
 import { catalogSummary, emptyCatalog, readVideo, sourceStatus, sourceSummaries } from "./catalog.ts";
 import { database } from "./database.ts";
 import { filters, retrieve } from "./search.ts";
@@ -16,6 +17,9 @@ import { Failure, text } from "./validation.ts";
 
 const frontendPath = resolve("dist/frontend");
 const development = process.argv.includes("--development");
+const publicOrigins = origins("PUBLIC_ORIGINS");
+const frameAncestors = origins("FRAME_ANCESTORS");
+const framePolicy = frameAncestors.length ? frameAncestors.join(" ") : "'none'";
 
 const media: Record<string, string> = {
     ".html": "text/html; charset=utf-8",
@@ -27,6 +31,37 @@ const media: Record<string, string> = {
 };
 
 let activeChats = 0;
+
+function origins(name: string): string[] {
+    const value = process.env[name]?.trim();
+
+    if (!value) {
+        return [];
+    }
+
+    try {
+        return value.split(",").map((entry) => {
+            const value = entry.trim();
+            const url = new URL(value);
+
+            if (
+                !["http:", "https:"].includes(url.protocol) ||
+                url.username ||
+                url.password ||
+                url.hostname.includes("*") ||
+                (value !== url.origin && value !== `${url.origin}/`)
+            ) {
+                throw new Error("Invalid origin.");
+            }
+
+            return url.origin;
+        });
+    } catch {
+        throw new Error(
+            `${name} must contain comma-separated HTTP(S) origins without credentials, paths, or wildcards.`,
+        );
+    }
+}
 
 function json(response: ServerResponse, value: unknown, status = 200): void {
     response.writeHead(status, {
@@ -69,7 +104,7 @@ const server = createServer(async (request, response) => {
 
     response.setHeader(
         "Content-Security-Policy",
-        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://*.ytimg.com; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+        `default-src 'self'; script-src 'self' 'sha256-jO5NLPn5mlneHjNesqDf9CPOef5fsk/8tDA0vR9DrO4='; style-src 'self'; img-src 'self' https://*.ytimg.com; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors ${framePolicy}`,
     );
 
     try {
@@ -81,10 +116,24 @@ const server = createServer(async (request, response) => {
             }
 
             if (request.method !== "GET" && request.headers.origin) {
-                const origin = new URL(request.headers.origin);
+                let origin;
+
+                try {
+                    origin = new URL(request.headers.origin);
+                } catch {
+                    throw new Failure("Cross-origin mutations are not allowed.", 403);
+                }
+
+                const validOrigin =
+                    ["http:", "https:"].includes(origin.protocol) && origin.origin === request.headers.origin;
+
                 const localDevelopment = development && origin.origin === "http://127.0.0.1:5173";
 
-                if (origin.host !== request.headers.host && !localDevelopment) {
+                const sameOrigin = publicOrigins.length
+                    ? publicOrigins.includes(origin.origin)
+                    : origin.origin === `http://${request.headers.host}`;
+
+                if (!validOrigin || (!sameOrigin && !localDevelopment)) {
                     throw new Failure("Cross-origin mutations are not allowed.", 403);
                 }
             }
@@ -247,7 +296,7 @@ const server = createServer(async (request, response) => {
         try {
             details = await stat(file);
         } catch {
-            throw new Failure("Frontend asset not found. Run bun run build before production start.", 404);
+            throw new Failure("Frontend asset not found. Run npm run build before production start.", 404);
         }
 
         if (!details.isFile()) {
@@ -299,5 +348,7 @@ server.on("error", () => {
     console.error("Server could not start. Check HOST, PORT, and whether the port is in use.");
     process.exitCode = 1;
 });
+
+await bootstrap();
 
 server.listen(port, host, () => console.log(`ArchiveMateAI backend: http://${host}:${port}`));

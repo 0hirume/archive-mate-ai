@@ -4,7 +4,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "dev": "bun run --parallel --no-orphans backend frontend",
+        "dev": "npm run build && npm start",
         "backend": "node --watch backend/server.ts --development",
         "frontend": "vite",
         "ingest": "node backend/ingestion.ts",
@@ -13,7 +13,7 @@
         "format": "oxfmt",
         "lint": "oxlint",
         "check": "tsc -b frontend backend",
-        "build": "bun run check && vite build",
+        "build": "npm run check && vite build",
         "start": "node dist/backend/server.js"
     },
     "dependencies": {
@@ -31,6 +31,7 @@
         "oxfmt": "^0.73.0",
         "oxlint": "^1.88.0",
         "tailwindcss": "^4.3.3",
+        "typescript": "7.0.2",
         "vite": "^8.3.4",
         "vite-plugin-solid": "^2.11.14"
     },
