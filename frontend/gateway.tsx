@@ -148,7 +148,10 @@ function ingestion(value: unknown): value is Ingestion {
 function catalog(value: unknown): value is Status {
     return (
         record(value) &&
-        (value.catalog === "ready" || value.catalog === "missing" || value.catalog === "error") &&
+        (value.catalog === "ready" ||
+            value.catalog === "missing" ||
+            value.catalog === "error" ||
+            value.catalog === "restoring") &&
         nullable(value.error) &&
         count(value.total) &&
         count(value.unavailable) &&

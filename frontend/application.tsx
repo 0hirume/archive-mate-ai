@@ -64,11 +64,13 @@ export default function Application() {
     const [archieVisible, setArchieVisible] = createSignal(true);
     const chatShown = createMemo(() => (mobile() ? chatopen() : archieVisible()));
     const ready = createMemo(() => status()?.catalog === "ready" && !statuserror());
+    const restoring = createMemo(() => status()?.catalog === "restoring" && !statuserror());
     const assistance = createMemo(() => ready() && status()?.assistance.configured === true);
     const locked = createMemo(() => !ready() || sending() || clearing());
     const pages = createMemo(() => Math.ceil((collection()?.total ?? 0) / 12));
 
     let searchtimer: number | undefined;
+    let refreshTimer: number | undefined;
     let searchkey = "";
 
     let statusrequest: AbortController | undefined;
@@ -241,6 +243,11 @@ export default function Application() {
     }
 
     async function refresh() {
+        if (disposed) {
+            return;
+        }
+
+        clearTimeout(refreshTimer);
         const wasready = ready();
         statusrequest?.abort();
         const controller = new AbortController();
@@ -277,6 +284,10 @@ export default function Application() {
             if (statusrequest === controller) {
                 refreshstate(false);
                 statusrequest = undefined;
+
+                if (!disposed && status()?.catalog === "restoring") {
+                    refreshTimer = window.setTimeout(() => void refresh(), 5000);
+                }
             }
         }
     }
@@ -645,6 +656,7 @@ export default function Application() {
         statusrequest?.abort();
         searchrequest?.abort();
         clearTimeout(searchtimer);
+        clearTimeout(refreshTimer);
         chatrequest?.abort();
         detailrequest?.abort();
     });
@@ -1440,30 +1452,45 @@ export default function Application() {
                                 </form>
                             </section>
                             <Show when={statuserror() || (status() && !ready())}>
-                                <div class="bg-danger p-4 text-danger-foreground sm:px-6" role="alert">
+                                <div
+                                    class="p-4 sm:px-6"
+                                    classList={{
+                                        "bg-surface-muted text-foreground": restoring(),
+                                        "bg-danger text-danger-foreground": !restoring(),
+                                    }}
+                                    role={restoring() ? "status" : "alert"}
+                                >
                                     <div class="min-w-0 space-y-2">
                                         <h2 class="text-base font-semibold">
                                             {statuserror()
                                                 ? "Couldn't check the collection"
-                                                : status()?.catalog === "missing"
-                                                  ? "Collection hasn't been added yet"
-                                                  : "Collection needs attention"}
+                                                : restoring()
+                                                  ? "Restoring archive…"
+                                                  : status()?.catalog === "missing"
+                                                    ? "Collection hasn't been added yet"
+                                                    : "Collection needs attention"}
                                         </h2>
                                         <p>
                                             {statuserror() ||
                                                 status()?.error ||
-                                                "The collection is unavailable. Refresh status to try again."}
+                                                (restoring()
+                                                    ? "Preparing the collection. This page will update automatically."
+                                                    : "The collection is unavailable. Refresh status to try again.")}
                                         </p>
                                         <div class="flex flex-wrap gap-2">
                                             <button
                                                 type="button"
                                                 class="action bg-surface-muted text-foreground hover:bg-border"
-                                                disabled={refreshing()}
+                                                disabled={refreshing() || restoring()}
                                                 onClick={() => {
                                                     void refresh();
                                                 }}
                                             >
-                                                {refreshing() ? "Refreshing…" : "Refresh status"}
+                                                {restoring()
+                                                    ? "Restoring…"
+                                                    : refreshing()
+                                                      ? "Refreshing…"
+                                                      : "Refresh status"}
                                             </button>
                                             <button
                                                 type="button"

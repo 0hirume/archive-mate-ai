@@ -93,9 +93,11 @@ export default function Conversation(props: {
                         <p>
                             {!props.status
                                 ? "Checking collection and assistant availability…"
-                                : !props.ready
-                                  ? "Archie needs a working collection. Resolve the collection error, then try again."
-                                  : "Archie is unavailable. You can still search the collection."}
+                                : props.status.catalog === "restoring"
+                                  ? "Archie is waiting for the archive to finish restoring."
+                                  : !props.ready
+                                    ? "Archie needs a working collection. Resolve the collection error, then try again."
+                                    : "Archie is unavailable. You can still search the collection."}
                         </p>
                     </div>
                 </Show>

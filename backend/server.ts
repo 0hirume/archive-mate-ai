@@ -31,6 +31,7 @@ const media: Record<string, string> = {
 };
 
 let activeChats = 0;
+let restoration: "restoring" | "ready" | "failed" = "restoring";
 
 function origins(name: string): string[] {
     const value = process.env[name]?.trim();
@@ -142,8 +143,13 @@ const server = createServer(async (request, response) => {
                 const coverage = emptyCatalog().sources.map(sourceStatus);
 
                 const status: Status = {
-                    catalog: "missing",
-                    error: null,
+                    catalog: restoration === "ready" ? "missing" : restoration === "restoring" ? "restoring" : "error",
+
+                    error:
+                        restoration === "failed"
+                            ? "Archive restoration failed. Check the server logs and restart after correcting the problem."
+                            : null,
+
                     total: 0,
                     unavailable: 0,
                     unknownAvailability: 0,
@@ -160,6 +166,12 @@ const server = createServer(async (request, response) => {
                     assistance: { configured: assistanceConfigured, model },
                 };
 
+                if (restoration !== "ready") {
+                    json(response, status);
+
+                    return;
+                }
+
                 try {
                     const { indexedPublicationRange: _, ...summary } = catalogSummary();
                     Object.assign(status, summary, { sources: summary.sources.map(sourceStatus) });
@@ -174,6 +186,17 @@ const server = createServer(async (request, response) => {
                 json(response, status);
 
                 return;
+            }
+
+            if (restoration !== "ready") {
+                response.setHeader("Retry-After", "5");
+
+                throw new Failure(
+                    restoration === "restoring"
+                        ? "Restoring archive. Try again shortly."
+                        : "Archive restoration failed.",
+                    503,
+                );
             }
 
             if (url.pathname.startsWith("/api/chat/") && request.method === "DELETE") {
@@ -349,6 +372,16 @@ server.on("error", () => {
     process.exitCode = 1;
 });
 
-await bootstrap();
+server.listen(port, host, () => {
+    console.log(`ArchiveMateAI backend: http://${host}:${port}`);
 
-server.listen(port, host, () => console.log(`ArchiveMateAI backend: http://${host}:${port}`));
+    void bootstrap().then(
+        () => {
+            restoration = "ready";
+        },
+        (error: unknown) => {
+            restoration = "failed";
+            console.error("Archive restoration failed:", error);
+        },
+    );
+});

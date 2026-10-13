@@ -115,7 +115,7 @@ export interface Result {
 }
 
 export interface Status {
-    catalog: "ready" | "missing" | "error";
+    catalog: "ready" | "missing" | "error" | "restoring";
     error: string | null;
     total: number;
     unavailable: number;
