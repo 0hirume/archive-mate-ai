@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+data/
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.db
+*.db-*
+.cache/
+/.impeccable/
+/mise.local.toml

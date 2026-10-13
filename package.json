@@ -1,0 +1,39 @@
+{
+    "name": "archive-mate-ai",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "bun run --parallel --no-orphans backend frontend",
+        "backend": "node --watch backend/server.ts --development",
+        "frontend": "vite",
+        "ingest": "node backend/ingestion.ts",
+        "migrate": "node backend/migration.ts",
+        "index": "node backend/indexing.ts",
+        "format": "oxfmt",
+        "lint": "oxlint",
+        "check": "tsc -b frontend backend",
+        "build": "bun run check && vite build",
+        "start": "node dist/backend/server.js"
+    },
+    "dependencies": {
+        "@ark-ui/solid": "^5.39.3",
+        "@google/genai": "^2.29.0",
+        "@huggingface/transformers": "4.3.1",
+        "cli-progress": "^3.12.0",
+        "solid-js": "^1.9.17"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.3.3",
+        "@types/cli-progress": "^3.11.6",
+        "@types/node": "^26.6.5",
+        "oxfmt": "^0.73.0",
+        "oxlint": "^1.88.0",
+        "tailwindcss": "^4.3.3",
+        "vite": "^8.3.4",
+        "vite-plugin-solid": "^2.11.14"
+    },
+    "engines": {
+        "node": ">=22.18.0"
+    }
+}
