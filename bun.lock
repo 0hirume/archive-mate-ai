@@ -8,6 +8,7 @@
         "@ark-ui/solid": "^5.39.3",
         "@google/genai": "^2.29.0",
         "@huggingface/transformers": "4.3.1",
+        "@liquidglassjs/core": "^0.6.1",
         "cli-progress": "^3.12.0",
         "pino": "^10.4.0",
         "solid-js": "^1.9.17",
@@ -148,6 +149,8 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.6.0", "", {}, "sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw=="],
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
+
+    "@liquidglassjs/core": ["@liquidglassjs/core@0.6.1", "", { "peerDependencies": { "astro": ">=4" }, "optionalPeers": ["astro"] }, "sha512-wGpvItEVHHnAFNSkQ9eXyR0d3unZWDef5i59RMEgBByZUBS8yzVnZ18wmLYbXXTyoI7WV6ZxdG8e2/8pB3bB5Q=="],
 
     "@oxc-project/types": ["@oxc-project/types@0.153.0", "", {}, "sha512-jSNrRIyvPVLL5E1z/tS5zLAprosGz/FuI1PWwEOz59j3E4TTTzSpqKb/RDGqJhhW0QHYISGXxq582wGx6T11Tw=="],
 

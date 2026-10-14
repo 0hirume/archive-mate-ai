@@ -2,6 +2,8 @@ import { DatePicker, parseDate, type DateValue } from "@ark-ui/solid/date-picker
 import { For, Show, createMemo, createSignal, onMount, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
 
+import glass from "./glass";
+
 function date(value: string) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
         return undefined;
@@ -103,7 +105,8 @@ export default function Dates(props: {
         >
             <DatePicker.Control>
                 <DatePicker.Trigger
-                    class={`action max-w-full rounded-full border text-sm hover:bg-surface-muted ${props.from || props.until ? "border-accent text-accent" : "border-border"}`}
+                    ref={glass}
+                    class={`glass ps-glass action max-w-full rounded-full border text-sm ${props.from || props.until ? "border-accent text-accent" : "border-border"}`}
                     aria-label={`Publication dates: ${compact()}`}
                 >
                     <svg

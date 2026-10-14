@@ -19,6 +19,7 @@ import Conversation from "./conversation";
 import Dates, { validation } from "./dates";
 import { Footage, Inspection, numbers, scope } from "./footage";
 import * as gateway from "./gateway";
+import glass from "./glass";
 
 const defaults: Filters = { categories: [], playlists: [], from: "", until: "", order: "relevance" };
 const sorting = createListCollection({ items: orders.map((value) => ({ value, label: orderLabels[value] })) });
@@ -1131,10 +1132,15 @@ export default function Application() {
                                         }
                                     }}
                                 >
-                                    <Field.Root id="research-query" disabled={!ready()}>
+                                    <Field.Root
+                                        id="research-query"
+                                        class="glass ps-glass rounded-full"
+                                        ref={glass}
+                                        disabled={!ready()}
+                                    >
                                         <Field.Label class="sr-only">Search the collection</Field.Label>
                                         <Field.Input
-                                            class="field min-h-12 w-full min-w-0 text-base"
+                                            class="field min-h-12 w-full min-w-0 rounded-full bg-transparent text-base"
                                             ref={(element) => {
                                                 searchinput = element;
                                             }}
@@ -1183,9 +1189,10 @@ export default function Application() {
                                             <Select.Label class="sr-only">Categories</Select.Label>
                                             <Select.Control>
                                                 <Select.Trigger
-                                                    class={`action min-w-0 justify-between rounded-full border font-normal hover:bg-surface-muted ${filters().categories.length ? "border-accent text-accent" : "border-border"}`}
+                                                    class={`glass ps-glass action min-w-0 justify-between rounded-full border font-normal ${filters().categories.length ? "border-accent text-accent" : "border-border"}`}
                                                     ref={(element) => {
                                                         categorytoggle = element;
+                                                        glass(element);
                                                     }}
                                                 >
                                                     <span>
@@ -1257,7 +1264,8 @@ export default function Application() {
                                             <Select.Label class="sr-only">Sources</Select.Label>
                                             <Select.Control>
                                                 <Select.Trigger
-                                                    class={`action min-w-0 justify-between rounded-full border font-normal hover:bg-surface-muted ${filters().playlists.length ? "border-accent text-accent" : "border-border"}`}
+                                                    ref={glass}
+                                                    class={`glass ps-glass action min-w-0 justify-between rounded-full border font-normal ${filters().playlists.length ? "border-accent text-accent" : "border-border"}`}
                                                 >
                                                     <span>
                                                         {filters().playlists.length
@@ -1336,7 +1344,8 @@ export default function Application() {
                                             <Select.Label class="sr-only">Sort results</Select.Label>
                                             <Select.Control>
                                                 <Select.Trigger
-                                                    class={`action min-w-0 justify-between gap-2 rounded-full border font-normal hover:bg-surface-muted ${filters().order !== defaults.order ? "border-accent text-accent" : "border-border"}`}
+                                                    ref={glass}
+                                                    class={`glass ps-glass action min-w-0 justify-between gap-2 rounded-full border font-normal ${filters().order !== defaults.order ? "border-accent text-accent" : "border-border"}`}
                                                 >
                                                     <span>Sort: {orderLabels[filters().order]}</span>
                                                     <Select.Indicator>
@@ -1384,7 +1393,8 @@ export default function Application() {
                                             <Select.HiddenSelect />
                                         </Select.Root>
                                         <Toggle.Root
-                                            class={`action gap-2 rounded-full border text-sm font-normal hover:bg-surface-muted ${semantic() ? "border-accent text-accent" : "border-border"}`}
+                                            ref={glass}
+                                            class={`glass ps-glass action gap-2 rounded-full border text-sm font-normal ${semantic() ? "border-accent text-accent" : "border-border"}`}
                                             pressed={semantic()}
                                             disabled={locked()}
                                             aria-label="Hybrid search"
@@ -1419,7 +1429,8 @@ export default function Application() {
                                         >
                                             <button
                                                 type="button"
-                                                class="action rounded-full border border-border px-3 text-sm hover:bg-surface-muted"
+                                                ref={glass}
+                                                class="glass ps-glass action rounded-full border border-border px-3 text-sm"
                                                 disabled={locked()}
                                                 onClick={() => {
                                                     batch(() => {

@@ -109,7 +109,7 @@ const server = createServer(async (request, response) => {
 
     response.setHeader(
         "Content-Security-Policy",
-        `default-src 'self'; script-src 'self' 'sha256-jO5NLPn5mlneHjNesqDf9CPOef5fsk/8tDA0vR9DrO4='; style-src 'self'; img-src 'self' https://*.ytimg.com; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors ${framePolicy}`,
+        `default-src 'self'; script-src 'self' 'sha256-jO5NLPn5mlneHjNesqDf9CPOef5fsk/8tDA0vR9DrO4='; style-src 'self'; img-src 'self' https://*.ytimg.com data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors ${framePolicy}`,
     );
 
     try {

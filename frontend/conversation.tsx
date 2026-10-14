@@ -5,6 +5,7 @@ import type { ChatResponse, Result, Status } from "../shared/metadata";
 
 import composition from "./composition";
 import { numbers } from "./footage";
+import glass from "./glass";
 
 export type Transcript = { kind: "question"; message: string } | { kind: "answer"; response: ChatResponse };
 
@@ -283,7 +284,8 @@ export default function Conversation(props: {
                         {(suggestion) => (
                             <button
                                 type="button"
-                                class="action rounded-full border border-border px-3 text-sm hover:bg-surface-muted"
+                                ref={glass}
+                                class="glass ps-glass action rounded-full border border-border px-3 text-sm"
                                 disabled={!props.available || props.sending || props.clearing}
                                 onClick={() => props.draft(suggestion.prompt.slice(0, 2000))}
                             >
@@ -326,7 +328,8 @@ export default function Conversation(props: {
                         />
                         <button
                             type="submit"
-                            class="send-action action min-h-12 shrink-0 rounded-full bg-conversation text-conversation-foreground hover:bg-conversation/90"
+                            ref={glass}
+                            class="glass ps-glass send-action action min-h-12 shrink-0 rounded-full text-foreground"
                             disabled={!props.available || props.sending || props.clearing || !props.message.trim()}
                         >
                             Send

@@ -118,6 +118,67 @@
         @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-sm px-4 py-2 text-sm font-semibold disabled:opacity-50;
     }
 
+    .glass {
+        --g-radius: 9999px;
+        --glass-paper: var(--color-surface-raised);
+        --glass-ink: var(--color-foreground);
+        --glass-frost-bg: color-mix(in srgb, var(--color-surface-raised) 15%, transparent);
+    }
+
+    .glass > :is(.ps-glass__surface, .ps-glass__tint, .ps-glass__rim) {
+        z-index: -1;
+    }
+
+    @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+        .glass::before,
+        .glass::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            border-radius: inherit;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .glass::before {
+            padding: 1px;
+            background: radial-gradient(
+                90px circle at var(--glass-pointer-x, 50%) var(--glass-pointer-y, 50%),
+                rgb(255 255 255 / 80%),
+                transparent
+            );
+            mask:
+                linear-gradient(#000 0 0) content-box,
+                linear-gradient(#000 0 0);
+            mask-composite: exclude;
+        }
+
+        .glass::after {
+            background: radial-gradient(
+                120px circle at var(--glass-pointer-x, 50%) var(--glass-pointer-y, 50%),
+                rgb(255 255 255 / 18%),
+                transparent
+            );
+        }
+
+        .glass[data-glass-hover]:not(:disabled):not([aria-disabled="true"]):not([data-disabled])::before,
+        .glass[data-glass-hover]:not(:disabled):not([aria-disabled="true"]):not([data-disabled])::after {
+            opacity: 1;
+        }
+    }
+
+    @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+        .glass {
+            background-color: var(--color-surface-raised);
+        }
+        .glass::before,
+        .glass::after {
+            display: none;
+        }
+    }
+
     .field {
         @apply rounded-sm border border-border bg-surface-raised px-3 py-2 text-base disabled:opacity-50;
     }
@@ -368,6 +429,14 @@
 
     .action:not(:disabled):active {
         translate: 0 1px;
+    }
+
+    .glass:is(button, [role="button"]) {
+        transition-property: color, background-color, border-color, text-decoration-color, opacity, translate, scale;
+    }
+
+    .glass:is(button, [role="button"]):not(:disabled):not([aria-disabled="true"]):not([data-disabled]):active {
+        scale: 0.97;
     }
 
     .navigation-indicator {

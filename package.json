@@ -21,6 +21,7 @@
         "@ark-ui/solid": "^5.39.3",
         "@google/genai": "^2.29.0",
         "@huggingface/transformers": "4.3.1",
+        "@liquidglassjs/core": "^0.6.1",
         "cli-progress": "^3.12.0",
         "pino": "^10.4.0",
         "solid-js": "^1.9.17",

@@ -6,6 +6,7 @@ import type { SourceSummary, Status } from "../shared/metadata";
 
 import { date, numbers } from "./footage";
 import * as gateway from "./gateway";
+import glass from "./glass";
 
 export default function Collection(props: {
     view: "overview" | "sources";
@@ -320,7 +321,8 @@ export default function Collection(props: {
                                                             </a>
                                                             <button
                                                                 type="button"
-                                                                class="action bg-accent text-accent-foreground hover:bg-accent/90"
+                                                                ref={glass}
+                                                                class="glass ps-glass action rounded-full text-foreground"
                                                                 disabled={props.locked || !source.searchable}
                                                                 onClick={() => props.browse(source)}
                                                             >
