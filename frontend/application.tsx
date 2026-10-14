@@ -784,7 +784,7 @@ export default function Application() {
                         <Dialog.Backdrop class="fixed inset-0 z-40 bg-foreground/40" />
                     </Show>
                     <Dialog.Content
-                        class="utility-sidebar cursor-pointer bg-surface-raised text-foreground"
+                        class="utility-sidebar cursor-pointer bg-surface-raised text-foreground lg:bg-transparent"
                         classList={{ "utility-sidebar-collapsed": !mobile() && sidebarcollapsed(), "z-50": mobile() }}
                         role={mobile() ? "dialog" : "complementary"}
                         onClick={(event) => {
@@ -1035,7 +1035,7 @@ export default function Application() {
                     </Dialog.Content>
                 </Dialog.Root>
                 <div class="min-w-0 flex-1">
-                    <header class="border-b border-border bg-surface-raised lg:hidden">
+                    <header class="border-b border-border lg:hidden">
                         <div class="flex items-center justify-between gap-2 px-4 py-3 sm:px-6">
                             <button
                                 type="button"
@@ -1114,7 +1114,7 @@ export default function Application() {
                         data-conversation={archieVisible() ? "open" : "closed"}
                         tabindex="-1"
                     >
-                        <Tabs.Content value="search" class="min-w-0 bg-surface-raised">
+                        <Tabs.Content value="search" class="min-w-0">
                             <section
                                 class="space-y-4 border-b border-border p-4 sm:p-6"
                                 aria-labelledby="collection-heading"
@@ -1733,7 +1733,7 @@ export default function Application() {
                         </Tabs.Content>
                         <For each={["overview", "sources"] as const}>
                             {(destination) => (
-                                <Tabs.Content value={destination} class="min-w-0 bg-surface-raised p-4 sm:p-6">
+                                <Tabs.Content value={destination} class="min-w-0 p-4 sm:p-6">
                                     <Collection
                                         view={destination}
                                         active={view() === destination}

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1000" fill="none">
+    <defs>
+        <mask id="clearance" maskUnits="userSpaceOnUse" x="0" y="0" width="1440" height="1000">
+            <rect width="1440" height="1000" fill="white" />
+            <g fill="black" stroke="black" stroke-width="56" stroke-linecap="round">
+                <circle cx="580" cy="820" r="44" stroke="none" />
+                <path d="M580 836V1040" />
+            </g>
+        </mask>
+    </defs>
+    <g stroke="#301014" opacity="0.22" mask="url(#clearance)">
+        <circle cx="580" cy="820" r="1824" stroke-width="16" />
+        <circle cx="580" cy="820" r="1036" stroke-width="24" />
+        <circle cx="580" cy="820" r="624" stroke-width="32" />
+        <circle cx="580" cy="820" r="396" stroke-width="40" />
+        <circle cx="580" cy="820" r="256" stroke-width="48" />
+        <circle cx="580" cy="820" r="156" stroke-width="56" />
+        <circle cx="580" cy="820" r="72" stroke-width="64" />
+    </g>
+    <g stroke="#301014" stroke-width="32" stroke-linecap="round" opacity="0.22">
+        <circle cx="580" cy="820" r="16" fill="#301014" />
+        <path d="M580 836V1040" />
+    </g>
+</svg>
