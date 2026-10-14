@@ -1,7 +1,9 @@
 import { Avatar } from "@ark-ui/solid/avatar";
 import { ark } from "@ark-ui/solid/factory";
 import { Field } from "@ark-ui/solid/field";
+import { Tooltip } from "@ark-ui/solid/tooltip";
 import { For, Show, createEffect, createSignal, on } from "solid-js";
+import { Portal } from "solid-js/web";
 
 import type { ChatResponse, Result, Status } from "../shared/metadata";
 
@@ -432,6 +434,33 @@ export default function Conversation(props: {
         <section class="flex h-full min-h-0 min-w-0 flex-col bg-surface-raised" aria-label="Conversation with Archie">
             <header class="flex flex-wrap items-start justify-between gap-2 border-b border-border p-4">
                 <div class="flex items-center gap-3">
+                    <Show when={props.mobile}>
+                        <Tooltip.Root>
+                            <Tooltip.Trigger
+                                type="button"
+                                class="action size-11 p-2 hover:bg-surface-muted"
+                                onClick={props.close}
+                                aria-label="Back to browsing"
+                            >
+                                <ark.svg
+                                    class="size-5"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    aria-hidden="true"
+                                >
+                                    <ark.path d="M20 12H4m6-6-6 6 6 6" />
+                                </ark.svg>
+                            </Tooltip.Trigger>
+                            <Portal>
+                                <Tooltip.Positioner class="z-50">
+                                    <Tooltip.Content class="popup px-3 py-2 text-sm">Back to browsing</Tooltip.Content>
+                                </Tooltip.Positioner>
+                            </Portal>
+                        </Tooltip.Root>
+                    </Show>
                     <Show when={introduction()} keyed>
                         {(_introduction) => (
                             <ark.div
@@ -476,28 +505,37 @@ export default function Conversation(props: {
                     </div>
                 </div>
                 <div class="flex items-center gap-1">
-                    <button
-                        type="button"
-                        class="action px-2 text-sm hover:bg-surface-muted"
-                        disabled={
-                            props.sending ||
-                            props.clearing ||
-                            (!props.entries.length && !props.failure && !props.message)
-                        }
-                        onClick={props.clear}
-                    >
-                        New chat
-                    </button>
-                    <Show when={props.mobile}>
-                        <button
+                    <Tooltip.Root>
+                        <Tooltip.Trigger
                             type="button"
-                            class="action px-2 hover:bg-surface-muted"
-                            onClick={props.close}
-                            aria-label="Close Archie conversation"
+                            class="action size-11 p-2 hover:bg-surface-muted"
+                            aria-label="New chat"
+                            disabled={
+                                props.sending ||
+                                props.clearing ||
+                                (!props.entries.length && !props.failure && !props.message)
+                            }
+                            onClick={props.clear}
                         >
-                            Close
-                        </button>
-                    </Show>
+                            <ark.svg
+                                class="size-5"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                aria-hidden="true"
+                            >
+                                <ark.path d="M12 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-7M16 3a2.12 2.12 0 0 1 3 3l-9 9-4 1 1-4 9-9Z" />
+                            </ark.svg>
+                        </Tooltip.Trigger>
+                        <Portal>
+                            <Tooltip.Positioner class="z-50">
+                                <Tooltip.Content class="popup px-3 py-2 text-sm">New chat</Tooltip.Content>
+                            </Tooltip.Positioner>
+                        </Portal>
+                    </Tooltip.Root>
                 </div>
             </header>
             <div
@@ -569,7 +607,7 @@ export default function Conversation(props: {
                                         <For each={entry.response.results}>
                                             {(result, index) => (
                                                 <li>
-                                                    <button
+                                                    <ark.button
                                                         type="button"
                                                         class="flex min-h-11 w-full items-start gap-3 rounded-sm px-2 py-3 text-left hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-accent"
                                                         onClick={() => props.open(result)}
@@ -581,7 +619,7 @@ export default function Conversation(props: {
                                                         <span class="min-w-0 break-words text-sm font-medium underline decoration-border underline-offset-4">
                                                             {result.video.title || "Title not supplied"}
                                                         </span>
-                                                    </button>
+                                                    </ark.button>
                                                 </li>
                                             )}
                                         </For>
@@ -624,30 +662,30 @@ export default function Conversation(props: {
                         <p>{props.failure}</p>
                         <Show when={props.failed}>
                             <div class="flex flex-wrap gap-1">
-                                <button
+                                <ark.button
                                     type="button"
                                     class="action px-2 text-sm hover:bg-surface-muted"
                                     disabled={!props.available || props.sending || props.clearing}
                                     onClick={props.retry}
                                 >
                                     Retry
-                                </button>
-                                <button
+                                </ark.button>
+                                <ark.button
                                     type="button"
                                     class="action px-2 text-sm hover:bg-surface-muted"
                                     disabled={!props.available || props.sending || props.clearing}
                                     onClick={props.edit}
                                 >
                                     Edit message
-                                </button>
-                                <button
+                                </ark.button>
+                                <ark.button
                                     type="button"
                                     class="action px-2 text-sm hover:bg-surface-muted"
                                     disabled={!props.ready || props.sending || props.clearing}
                                     onClick={() => props.browse(props.failed)}
                                 >
                                     Search directly
-                                </button>
+                                </ark.button>
                             </div>
                         </Show>
                     </div>
@@ -655,7 +693,7 @@ export default function Conversation(props: {
             </div>
             <Show when={props.newreply}>
                 <div class="flex shrink-0 justify-center px-4 py-2">
-                    <button
+                    <ark.button
                         type="button"
                         class="action gap-2 text-sm hover:bg-surface-muted"
                         onClick={props.bottom}
@@ -672,7 +710,7 @@ export default function Conversation(props: {
                         >
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m-6-6 6 6 6-6" />
                         </svg>
-                    </button>
+                    </ark.button>
                 </div>
             </Show>
             <form
@@ -701,7 +739,7 @@ export default function Conversation(props: {
                         }
                     >
                         {(suggestion) => (
-                            <button
+                            <ark.button
                                 type="button"
                                 ref={glass}
                                 class="glass ps-glass action rounded-full border border-border px-3 text-sm"
@@ -709,7 +747,7 @@ export default function Conversation(props: {
                                 onClick={() => props.draft(suggestion.prompt.slice(0, 2000))}
                             >
                                 {suggestion.label}
-                            </button>
+                            </ark.button>
                         )}
                     </For>
                 </div>
@@ -745,26 +783,35 @@ export default function Conversation(props: {
                                 }
                             }}
                         />
-                        <button
-                            type="submit"
-                            ref={glass}
-                            class="glass ps-glass send-action action min-h-12 shrink-0 rounded-full text-foreground"
-                            disabled={!props.available || props.sending || props.clearing || !props.message.trim()}
-                        >
-                            Send
-                            <svg
-                                class="size-4"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                aria-hidden="true"
+                        <Tooltip.Root>
+                            <Tooltip.Trigger
+                                type="submit"
+                                ref={glass}
+                                class="glass ps-glass send-action action size-12 shrink-0 rounded-full p-2 text-foreground"
+                                aria-label="Send message"
+                                disabled={!props.available || props.sending || props.clearing || !props.message.trim()}
                             >
-                                <path d="M4 12h16m-6-6 6 6-6 6" />
-                            </svg>
-                        </button>
+                                <span class="ps-glass__content inline-flex items-center gap-2">
+                                    <svg
+                                        class="size-4"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        aria-hidden="true"
+                                    >
+                                        <path d="M4 12h16m-6-6 6 6-6 6" />
+                                    </svg>
+                                </span>
+                            </Tooltip.Trigger>
+                            <Portal>
+                                <Tooltip.Positioner class="z-50">
+                                    <Tooltip.Content class="popup px-3 py-2 text-sm">Send message</Tooltip.Content>
+                                </Tooltip.Positioner>
+                            </Portal>
+                        </Tooltip.Root>
                     </div>
                     <Field.HelperText class="block text-right text-sm text-muted">
                         <Show when={props.savedDraft}>

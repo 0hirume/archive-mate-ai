@@ -1,4 +1,5 @@
 import { DatePicker, parseDate, type DateValue } from "@ark-ui/solid/date-picker";
+import { ark } from "@ark-ui/solid/factory";
 import { For, Show, createMemo, createSignal, onMount, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
 
@@ -347,14 +348,14 @@ export default function Dates(props: {
                             </label>
                         </div>
                         <div class="mt-3 flex flex-wrap items-center gap-2">
-                            <button
+                            <ark.button
                                 type="button"
                                 class="action text-sm hover:bg-surface-muted"
                                 disabled={props.disabled || (!props.from && !props.until)}
                                 onClick={() => props.change("", "")}
                             >
                                 Clear dates
-                            </button>
+                            </ark.button>
                             <p
                                 id="date-help"
                                 class={`text-sm ${problem() ? "text-danger" : "text-muted"}`}

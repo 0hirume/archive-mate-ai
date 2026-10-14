@@ -1,3 +1,4 @@
+import { ark } from "@ark-ui/solid/factory";
 import { Menu } from "@ark-ui/solid/menu";
 import { For, Show, createEffect, createSignal, on, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -182,7 +183,7 @@ export default function Collection(props: {
                                 {failure()}
                                 {sources() ? " Showing the previous source coverage." : ""}
                             </p>
-                            <button
+                            <ark.button
                                 type="button"
                                 class="action bg-surface-muted hover:bg-border"
                                 disabled={loading()}
@@ -191,7 +192,7 @@ export default function Collection(props: {
                                 }}
                             >
                                 Retry sources
-                            </button>
+                            </ark.button>
                         </div>
                     </Show>
                     <ul class="divide-y divide-border">
@@ -319,7 +320,7 @@ export default function Collection(props: {
                                                                 Original playlist
                                                                 <span class="sr-only"> (opens in a new tab)</span>
                                                             </a>
-                                                            <button
+                                                            <ark.button
                                                                 type="button"
                                                                 ref={glass}
                                                                 class="glass ps-glass action rounded-full text-foreground"
@@ -327,7 +328,7 @@ export default function Collection(props: {
                                                                 onClick={() => props.browse(source)}
                                                             >
                                                                 Browse
-                                                            </button>
+                                                            </ark.button>
                                                         </div>
                                                     </div>
                                                 </li>

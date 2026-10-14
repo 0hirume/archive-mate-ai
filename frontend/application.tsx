@@ -1,4 +1,5 @@
 import { Dialog } from "@ark-ui/solid/dialog";
+import { ark } from "@ark-ui/solid/factory";
 import { Field } from "@ark-ui/solid/field";
 import { Pagination } from "@ark-ui/solid/pagination";
 import { Select, createListCollection } from "@ark-ui/solid/select";
@@ -805,7 +806,7 @@ export default function Application() {
                         }}
                     >
                         <div class="flex h-full min-h-0 flex-col gap-6 px-3 py-6">
-                            <button
+                            <ark.button
                                 type="button"
                                 class="flex min-h-11 shrink-0 items-center gap-3 px-3 text-left"
                                 aria-label={
@@ -840,7 +841,7 @@ export default function Application() {
                                 >
                                     ArchiveMateAI
                                 </span>
-                            </button>
+                            </ark.button>
                             <div id="utility-content" class="flex min-h-0 flex-1 flex-col gap-6">
                                 <Tabs.List
                                     class="relative isolate min-h-0 flex-1 space-y-1 overflow-y-auto"
@@ -1038,7 +1039,7 @@ export default function Application() {
                 <div class="min-w-0 flex-1">
                     <header class="border-b border-border lg:hidden">
                         <div class="flex items-center justify-between gap-2 px-4 py-3 sm:px-6">
-                            <button
+                            <ark.button
                                 type="button"
                                 class="action shrink-0 gap-2 px-3 hover:bg-surface-muted"
                                 ref={(element) => {
@@ -1067,8 +1068,8 @@ export default function Application() {
                                     <path d="M7 4v16M17 4v16M3 8h4M3 12h4M3 16h4M17 8h4M17 12h4M17 16h4M10 9l4 3-4 3Z" />
                                 </svg>
                                 <span class="hidden sm:inline">ArchiveMateAI</span>
-                            </button>
-                            <button
+                            </ark.button>
+                            <ark.button
                                 type="button"
                                 class="action shrink-0 gap-2 hover:bg-surface-muted lg:hidden"
                                 ref={(element) => {
@@ -1106,7 +1107,7 @@ export default function Application() {
                                         />
                                     </Show>
                                 </span>
-                            </button>
+                            </ark.button>
                         </div>
                     </header>
                     <main
@@ -1427,7 +1428,7 @@ export default function Application() {
                                                 semantic()
                                             }
                                         >
-                                            <button
+                                            <ark.button
                                                 type="button"
                                                 ref={glass}
                                                 class="glass ps-glass action rounded-full border border-border px-3 text-sm"
@@ -1441,7 +1442,7 @@ export default function Application() {
                                                 }}
                                             >
                                                 Clear filters
-                                            </button>
+                                            </ark.button>
                                         </Show>
                                     </fieldset>
                                     <p id="semantic-description" class="sr-only">
@@ -1478,7 +1479,7 @@ export default function Application() {
                                                     : "The collection is unavailable. Refresh status to try again.")}
                                         </p>
                                         <div class="flex flex-wrap gap-2">
-                                            <button
+                                            <ark.button
                                                 type="button"
                                                 class="action bg-surface-muted text-foreground hover:bg-border"
                                                 disabled={refreshing() || restoring()}
@@ -1491,14 +1492,14 @@ export default function Application() {
                                                     : refreshing()
                                                       ? "Refreshing…"
                                                       : "Refresh status"}
-                                            </button>
-                                            <button
+                                            </ark.button>
+                                            <ark.button
                                                 type="button"
                                                 class="action hover:bg-danger-foreground/10"
                                                 onClick={() => showView("overview")}
                                             >
                                                 Overview
-                                            </button>
+                                            </ark.button>
                                         </div>
                                     </div>
                                 </div>
@@ -1597,7 +1598,7 @@ export default function Application() {
                                         <div class="space-y-2">
                                             <h3 class="text-base font-semibold">Search couldn't be completed</h3>
                                             <p>{searcherror()}</p>
-                                            <button
+                                            <ark.button
                                                 type="button"
                                                 class="action bg-surface-muted text-foreground hover:bg-border"
                                                 disabled={
@@ -1616,7 +1617,7 @@ export default function Application() {
                                                 }}
                                             >
                                                 Retry search
-                                            </button>
+                                            </ark.button>
                                         </div>
                                     </div>
                                 </Show>

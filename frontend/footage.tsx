@@ -1,4 +1,5 @@
 import { Collapsible } from "@ark-ui/solid/collapsible";
+import { ark } from "@ark-ui/solid/factory";
 import { For, Show, createEffect, createMemo, createSignal, on } from "solid-js";
 
 import type { Filters, Result, Video } from "../shared/metadata";
@@ -121,7 +122,7 @@ export function Preview(props: { video: Video; inspection?: boolean }) {
                 when={image() && !broken()}
                 fallback={<span class="px-2 text-center text-xs leading-tight">No preview available</span>}
             >
-                <img
+                <ark.img
                     class="h-full w-full object-cover"
                     src={image()}
                     alt=""
@@ -151,7 +152,7 @@ export function Footage(props: { results: Result[]; selected?: string; open: (re
             <For each={props.results}>
                 {(result) => (
                     <li>
-                        <button
+                        <ark.button
                             type="button"
                             class="footage-row grid w-full grid-cols-[104px_minmax(0,1fr)] items-start gap-4 px-4 py-5 text-left hover:bg-surface-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent sm:grid-cols-[176px_minmax(0,1fr)] sm:px-6"
                             classList={{ "bg-accent/5": props.selected === result.video.identifier }}
@@ -187,7 +188,7 @@ export function Footage(props: { results: Result[]; selected?: string; open: (re
                                     <span class="text-sm font-medium text-accent">Selected source</span>
                                 </Show>
                             </span>
-                        </button>
+                        </ark.button>
                     </li>
                 )}
             </For>
@@ -241,9 +242,9 @@ export function Inspection(props: {
         <div class="space-y-4 p-4 sm:p-6">
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-xl font-semibold">Selected source</h2>
-                <button type="button" class="action hover:bg-surface-muted" onClick={props.close}>
+                <ark.button type="button" class="action hover:bg-surface-muted" onClick={props.close}>
                     Back to results
-                </button>
+                </ark.button>
             </div>
             <div class="grid items-start gap-4 sm:grid-cols-[224px_minmax(0,1fr)]">
                 <Preview video={video()} inspection />
@@ -285,9 +286,9 @@ export function Inspection(props: {
             <Show when={props.failure}>
                 <div class="space-y-2 text-sm" role="alert">
                     <p class="text-danger">{props.failure} The supplied source details remain available.</p>
-                    <button type="button" class="action bg-surface-muted hover:bg-border" onClick={props.refresh}>
+                    <ark.button type="button" class="action bg-surface-muted hover:bg-border" onClick={props.refresh}>
                         Retry
-                    </button>
+                    </ark.button>
                 </div>
             </Show>
             <Show when={description()}>
@@ -447,14 +448,14 @@ export function Inspection(props: {
                         </div>
                     </Show>
                 </dl>
-                <button
+                <ark.button
                     type="button"
                     class="action mb-4 bg-surface-muted hover:bg-border"
                     disabled={props.loading}
                     onClick={props.refresh}
                 >
                     Refresh source metadata
-                </button>
+                </ark.button>
             </section>
         </div>
     );
