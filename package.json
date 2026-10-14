@@ -5,6 +5,7 @@
     "type": "module",
     "scripts": {
         "dev": "npm run build && npm start",
+        "share": "npm run build && node backend/tunnel.ts",
         "backend": "node --watch backend/server.ts --development",
         "frontend": "vite",
         "ingest": "node backend/ingestion.ts",
