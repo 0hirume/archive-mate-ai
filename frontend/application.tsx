@@ -804,7 +804,22 @@ export default function Application() {
                         }}
                     >
                         <div class="flex h-full min-h-0 flex-col gap-6 px-3 py-6">
-                            <div class="flex min-h-11 shrink-0 items-center gap-3 px-3">
+                            <button
+                                type="button"
+                                class="flex min-h-11 shrink-0 items-center gap-3 px-3 text-left"
+                                aria-label={
+                                    mobile()
+                                        ? "Close utility sidebar"
+                                        : sidebarcollapsed()
+                                          ? "Expand utility sidebar"
+                                          : "Collapse utility sidebar"
+                                }
+                                aria-expanded={mobile() ? sidebaropen() : !sidebarcollapsed()}
+                                aria-controls="utility-content"
+                                onClick={() =>
+                                    mobile() ? sidebarvisibility(false) : collapseSidebar(!sidebarcollapsed())
+                                }
+                            >
                                 <svg
                                     class="shrink-0"
                                     width="20"
@@ -824,32 +839,6 @@ export default function Application() {
                                 >
                                     ArchiveMateAI
                                 </span>
-                            </div>
-                            <button
-                                type="button"
-                                class="sr-only focus:not-sr-only focus:absolute focus:inset-x-3 focus:top-6 focus:z-10 focus:min-h-11 focus:whitespace-normal focus:bg-surface-raised focus:px-3"
-                                aria-label={
-                                    mobile()
-                                        ? "Close utility sidebar"
-                                        : sidebarcollapsed()
-                                          ? "Expand utility sidebar"
-                                          : "Collapse utility sidebar"
-                                }
-                                aria-expanded={mobile() ? sidebaropen() : !sidebarcollapsed()}
-                                aria-controls="utility-content"
-                                onClick={() => {
-                                    if (mobile()) {
-                                        sidebarvisibility(false);
-                                    } else {
-                                        collapseSidebar(!sidebarcollapsed());
-                                    }
-                                }}
-                            >
-                                {mobile()
-                                    ? "Close sidebar"
-                                    : sidebarcollapsed()
-                                      ? "Expand sidebar"
-                                      : "Collapse sidebar"}
                             </button>
                             <div id="utility-content" class="flex min-h-0 flex-1 flex-col gap-6">
                                 <Tabs.List

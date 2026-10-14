@@ -208,8 +208,7 @@
         }
 
         .utility-sidebar-collapsed .navigation-label {
-            opacity: 0;
-            visibility: hidden;
+            display: none;
         }
 
         .utility-sidebar-collapsed {
@@ -391,22 +390,6 @@
             transition:
                 flex-basis 220ms cubic-bezier(0.16, 1, 0.3, 1),
                 width 220ms cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .utility-sidebar-collapsed {
-            transition-delay: 120ms;
-        }
-
-        .navigation-label {
-            transition:
-                opacity 120ms ease-out 220ms,
-                visibility 0s 220ms;
-        }
-
-        .utility-sidebar-collapsed .navigation-label {
-            transition:
-                opacity 120ms ease-in,
-                visibility 0s 120ms;
         }
 
         #workspace {
