@@ -540,3 +540,60 @@
         animation-delay: 0.4s;
     }
 }
+
+.mascot-thinking,
+.mascot[data-thinking="true"] .mascot-default {
+    opacity: 0;
+}
+
+.mascot[data-thinking="true"] .mascot-thinking {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .mascot {
+        animation: mascot-welcome 600ms ease-out;
+        transition: rotate 180ms ease-out;
+    }
+
+    .mascot img {
+        transition: opacity 180ms ease-out;
+    }
+
+    .mascot[data-thinking="true"] .mascot-thinking {
+        animation: mascot-thinking 3s ease-in-out;
+        transform-origin: center 80%;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+        .mascot[data-thinking="false"]:hover {
+            rotate: -4deg;
+        }
+    }
+}
+
+@keyframes mascot-welcome {
+    0%,
+    100% {
+        rotate: 0deg;
+    }
+    45% {
+        rotate: -6deg;
+    }
+    75% {
+        rotate: 2deg;
+    }
+}
+
+@keyframes mascot-thinking {
+    0%,
+    100% {
+        rotate: 0deg;
+    }
+    30% {
+        rotate: -2deg;
+    }
+    70% {
+        rotate: 2deg;
+    }
+}
