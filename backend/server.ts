@@ -4,6 +4,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
+import pino from "pino";
 
 import type { Status } from "../shared/metadata.ts";
 
@@ -16,6 +17,7 @@ import { assistanceConfigured, model } from "./settings.ts";
 import { Failure, text } from "./validation.ts";
 
 const frontendPath = resolve("dist/frontend");
+const logger = pino();
 const development = process.argv.includes("--development");
 const publicOrigins = origins("PUBLIC_ORIGINS");
 const frameAncestors = origins("FRAME_ANCESTORS");
@@ -100,6 +102,8 @@ async function body(request: IncomingMessage): Promise<unknown> {
 }
 
 const server = createServer(async (request, response) => {
+    const started = performance.now();
+    const activity: Record<string, string> = {};
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.setHeader("Referrer-Policy", "no-referrer");
 
@@ -110,6 +114,40 @@ const server = createServer(async (request, response) => {
 
     try {
         const url = new URL(request.url || "/", "http://localhost");
+
+        if (url.pathname === "/" || (url.pathname.startsWith("/api/") && url.pathname !== "/api/status")) {
+            let completed = false;
+
+            response.once("finish", () => {
+                completed = true;
+
+                logger.info(
+                    {
+                        method: request.method,
+                        path: url.pathname.slice(0, 2048),
+                        status: response.statusCode,
+                        duration: Math.round(performance.now() - started),
+                        ...activity,
+                    },
+                    "Request completed",
+                );
+            });
+
+            response.once("close", () => {
+                if (!completed) {
+                    logger.warn(
+                        {
+                            method: request.method,
+                            path: url.pathname.slice(0, 2048),
+                            status: "disconnected",
+                            duration: Math.round(performance.now() - started),
+                            ...activity,
+                        },
+                        "Request disconnected",
+                    );
+                }
+            });
+        }
 
         if (url.pathname.startsWith("/api/")) {
             if (!["GET", "POST", "DELETE"].includes(request.method || "")) {
@@ -227,6 +265,7 @@ const server = createServer(async (request, response) => {
 
             if (url.pathname === "/api/search" && request.method === "GET") {
                 const query = text(url.searchParams.get("query") || "", 2000);
+                activity.query = query;
                 const semantic = url.searchParams.get("semantic");
 
                 if (semantic !== null && semantic !== "true" && semantic !== "false") {
@@ -292,7 +331,15 @@ const server = createServer(async (request, response) => {
                 activeChats++;
 
                 try {
-                    json(response, await converse(await body(request)));
+                    const input = await body(request);
+
+                    if (input && typeof input === "object" && "message" in input) {
+                        activity.message = text(input.message, 2000);
+                    }
+
+                    const answer = await converse(input);
+                    activity.reply = answer.message;
+                    json(response, answer);
                 } finally {
                     activeChats--;
                 }
