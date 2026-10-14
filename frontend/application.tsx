@@ -1528,27 +1528,22 @@ export default function Application() {
                             </Show>
                             <section aria-labelledby="results-heading">
                                 <div class="flex flex-wrap items-center justify-between gap-3 px-4 pt-5 pb-3 sm:px-6">
-                                    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                                        <h2
-                                            id="results-heading"
-                                            class="text-xl font-semibold"
-                                            ref={(element) => {
-                                                resultheading = element;
-                                            }}
-                                            tabindex="-1"
-                                        >
-                                            {collection()
-                                                ? submitted().semantic && submitted().query.trim()
-                                                    ? "Ranked results"
-                                                    : `${numbers.format(collection()!.total)} ${submitted().query.trim() ? "possible matches" : "videos"}`
-                                                : "Sources"}
-                                        </h2>
-                                        <Show when={collection()?.total}>
-                                            <p class="text-sm text-muted">
-                                                Page {collection()!.page} of {pages()}
-                                            </p>
-                                        </Show>
-                                    </div>
+                                    <h2
+                                        id="results-heading"
+                                        class="text-xl font-semibold"
+                                        ref={(element) => {
+                                            resultheading = element;
+                                        }}
+                                        tabindex="-1"
+                                    >
+                                        {collection()
+                                            ? submitted().semantic && submitted().query.trim()
+                                                ? "Ranked results"
+                                                : submitted().query.trim()
+                                                  ? "Possible matches"
+                                                  : "Videos"
+                                            : "Sources"}
+                                    </h2>
                                     <Show
                                         when={
                                             submitted().query.trim() ||
